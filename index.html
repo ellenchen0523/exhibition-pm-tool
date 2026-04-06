@@ -326,6 +326,13 @@ body {
 .gcell.today-col { background: rgba(34,113,195,.04); }
 .gbar { height: 10px; border-radius: var(--r-pill); position: absolute; top: 7px; left: 3px; right: 3px; }
 .gbar.dimmed { opacity: .35; }
+.gbar { cursor: grab; }
+.gbar:active { cursor: grabbing; }
+.gbar.dragging { opacity: .85; z-index: 10; }
+.adj-badge { font-size:10px; padding:1px 6px; border-radius:999px; background:#FAEEDA; color:#854F0B; }
+.reset-adj-btn { font-size:11px; padding:4px 10px; border-radius:6px; border:1px solid #e0e6ed; background:transparent; color:#6b6b6b; cursor:pointer; font-family:'Noto Sans TC',sans-serif; }
+.reset-adj-btn:hover { background:#f0f0f0; }
+.gantt-hint { font-size:11px; color:#9b9b9b; }
 .gantt-dl-bar {
   padding: 10px 2rem; border-top: 1px solid var(--border);
   display: flex; gap: 8px; align-items: center; background: var(--white);
@@ -359,6 +366,24 @@ body {
 
 /* ── Empty state ── */
 .empty-phase { text-align: center; padding: 3rem 1rem; color: var(--gray-300); font-size: 13px; }
+
+.hint-btn{width:17px;height:17px;border-radius:50%;border:1.5px solid #c0d4ee;background:transparent;color:#2271c3;font-size:10px;font-weight:700;cursor:pointer;flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;margin-left:6px;transition:all .15s;}
+.hint-btn:hover{background:#eef6ff;border-color:#2271c3;}
+.hint-overlay{display:none;position:fixed;inset:0;background:rgba(10,37,64,.5);z-index:500;align-items:center;justify-content:center;padding:1rem;}
+.hint-overlay.open{display:flex;}
+.hint-card{background:#fff;border-radius:16px;padding:1.5rem;width:100%;max-width:480px;box-shadow:0 20px 60px rgba(0,0,0,.18);max-height:85vh;overflow-y:auto;}
+.hint-tag{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#2271c3;margin-bottom:.35rem;}
+.hint-title{font-size:16px;font-weight:700;color:#0a2540;margin-bottom:1rem;line-height:1.4;}
+.hint-sec{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9b9b9b;margin-bottom:.5rem;}
+.hint-steps{display:flex;flex-direction:column;gap:8px;margin-bottom:1rem;}
+.hint-step{display:flex;gap:10px;align-items:flex-start;}
+.hint-num{width:20px;height:20px;border-radius:50%;background:#eef6ff;color:#2271c3;font-size:10px;font-weight:700;flex-shrink:0;display:flex;align-items:center;justify-content:center;margin-top:1px;}
+.hint-txt{font-size:13px;color:#3d3d3d;line-height:1.65;}
+.hint-tip{background:#faeeda;border-left:3px solid #f0a500;border-radius:0 6px 6px 0;padding:10px 12px;font-size:12px;color:#854f0b;line-height:1.7;margin-bottom:1rem;}
+.hint-tip b{display:block;margin-bottom:2px;font-weight:700;}
+.hint-close{width:100%;padding:9px;background:#1d5faa;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;font-family:'Noto Sans TC',sans-serif;}
+.hint-close:hover{background:#0d3260;}
+
 </style>
 </head>
 <body>
@@ -394,7 +419,7 @@ body {
           </div>
           <div>
             <label class="field-label">展覽開始日期</label>
-            <input class="field-input" id="eDate" type="date" oninput="onDateChange()" />
+            <input class="field-input" id="eDate" type="date" onchange="onDateChange()" oninput="onDateChange()" />
             <div class="date-feedback" id="dateFeedback"></div>
           </div>
           <div>
@@ -534,9 +559,9 @@ body {
               </button>
               <button class="dl-btn" onclick="dlTSV()">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                下載 Excel（TSV）
+                下載 Excel（含甘特圖）
               </button>
-              <span class="dl-hint">TSV 可直接貼入 Excel / Google Sheets，欄位含實際截止日期</span>
+              <button class="reset-adj-btn" onclick="resetAdj()">還原預設時程</button><span class="gantt-hint">拖拉色塊可調整時程，自動儲存於瀏覽器</span>
             </div>
           </div>
         </div>
@@ -555,6 +580,7 @@ body {
 const CTX = {}, DONE = {};
 let CUR_TAB = 'before';
 let EXHIBIT_DATE = null, WEEKS_BEFORE = 12;
+const ADJ = {};
 
 const CTX_LABELS = {
   solo:'獨立展位', joint:'聯展', embed:'置入展位',
@@ -713,30 +739,31 @@ function onDateChange() {
   const fb = document.getElementById('dateFeedback');
   if (!val) {
     EXHIBIT_DATE = null;
-    fb.className = 'date-feedback'; fb.textContent = ''; fb.classList.remove('show');
+    fb.className = 'date-feedback'; fb.innerHTML = ''; fb.classList.remove('show');
     updateSetupSummary(); return;
   }
-  EXHIBIT_DATE = new Date(val); EXHIBIT_DATE.setHours(0,0,0,0);
+  const p = val.split('-');
+  EXHIBIT_DATE = new Date(parseInt(p[0]), parseInt(p[1])-1, parseInt(p[2]));
+  EXHIBIT_DATE.setHours(0,0,0,0);
   const today = new Date(); today.setHours(0,0,0,0);
   const days = daysBetween(today, EXHIBIT_DATE);
   WEEKS_BEFORE = Math.max(1, Math.round(Math.abs(days) / 7));
   fb.classList.add('show');
   if (days < 0) {
     fb.className = 'date-feedback show urgent';
-    fb.innerHTML = `<span class="days-big">展覽已過去 ${-days} 天</span>仍可使用事後追蹤功能`;
+    fb.innerHTML = '<span class="days-big">展覽已過去 ' + (-days) + ' 天</span>仍可使用事後追蹤功能';
   } else if (days === 0) {
     fb.className = 'date-feedback show warn';
-    fb.innerHTML = `<span class="days-big">今天就是展覽日</span>進入事中執行模式`;
+    fb.innerHTML = '<span class="days-big">今天就是展覽日</span>進入事中執行模式';
   } else if (days <= 14) {
     fb.className = 'date-feedback show warn';
-    fb.innerHTML = `<span class="days-big">距今 ${days} 天（${WEEKS_BEFORE} 週）</span>時間緊迫，請優先處理紅色任務`;
+    fb.innerHTML = '<span class="days-big">距今 ' + days + ' 天（' + WEEKS_BEFORE + ' 週）</span>時間緊迫，請優先處理紅色任務';
   } else {
     fb.className = 'date-feedback show ok';
-    fb.innerHTML = `<span class="days-big">距今 ${days} 天（${WEEKS_BEFORE} 週）</span>各任務截止日已自動計算完成`;
+    fb.innerHTML = '<span class="days-big">距今 ' + days + ' 天（' + WEEKS_BEFORE + ' 週）</span>各任務截止日已自動計算完成';
   }
   updateSetupSummary();
 }
-
 function togChip(el) {
   const key = el.dataset.key, grp = el.dataset.grp;
   if (grp === 'mode') {
@@ -755,17 +782,16 @@ function updateSetupSummary() {
   const hasDate = !!EXHIBIT_DATE;
   document.getElementById('startBtn').disabled = !hasDate || !ctxKeys.length;
   document.getElementById('sumDays').textContent = hasDate
-    ? `${daysBetween(new Date().setHours(0,0,0,0), EXHIBIT_DATE)} 天` : '—';
-  document.getElementById('sumTasks').textContent = ctxKeys.length ? `${n} 項` : '—';
-  document.getElementById('sumCtx').textContent = `${ctxKeys.length} 項`;
+    ? (daysBetween(new Date().setHours(0,0,0,0), EXHIBIT_DATE) + ' 天') : '—';
+  document.getElementById('sumTasks').textContent = ctxKeys.length ? (n + ' 項') : '—';
+  document.getElementById('sumCtx').textContent = ctxKeys.length + ' 項';
   const sel = document.getElementById('ctxSelected');
   if (!ctxKeys.length) {
     sel.innerHTML = '<span class="empty-hint">尚未勾選任何情境</span>';
   } else {
-    sel.innerHTML = ctxKeys.map(k => `<span class="ctx-pill-sm">${CTX_LABELS[k]||k}</span>`).join('');
+    sel.innerHTML = ctxKeys.map(k => '<span class="ctx-pill-sm">' + (CTX_LABELS[k]||k) + '</span>').join('');
   }
 }
-
 /* ════════════════════════════════
    START
 ════════════════════════════════ */
@@ -780,7 +806,7 @@ function startPlanning() {
   const pills = document.getElementById('topCtxPills');
   pills.innerHTML = Object.keys(CTX).map(k => `<span class="ctx-pill-bar">${CTX_LABELS[k]||k}</span>`).join('');
 
-  renderChecklist(); renderGantt(); updateStats();
+  loadAdj(); renderChecklist(); renderGantt(); updateStats();
 }
 
 function goReset() {
@@ -823,42 +849,74 @@ function renderChecklist() {
   area.innerHTML = '';
   const secs = TASKS[CUR_TAB];
   let hasAny = false;
-  secs.forEach(sec => {
+  secs.forEach(function(sec) {
     const app = sec.tasks.filter(isOn);
     if (!app.length) return;
     hasAny = true;
-    const done = app.filter(t => DONE[t.id]).length;
+    const done = app.filter(function(t) { return DONE[t.id]; }).length;
     const pct = Math.round(done / app.length * 100);
-    const div = document.createElement('div');
-    div.className = 'phase-section';
-    div.innerHTML = `
-      <div class="sec-header">
-        <div class="sec-color" style="background:${sec.color}"></div>
-        <div class="sec-title-wrap">
-          <div class="sec-title">${sec.sec}</div>
-          <div class="sec-count">${done} / ${app.length} 完成</div>
-        </div>
-      </div>
-      <div class="sec-pbar"><div class="sec-pfill" style="width:${pct}%;background:${sec.color}"></div></div>
-      ${app.map(t => {
-        const ds = CUR_TAB === 'before' ? dueStatus(t.ws) : null;
-        const duetag = ds && !DONE[t.id] ? `<span class="t-tag ${ds.cls}">${ds.label}</span>` : '';
-        return `<div class="task-item ${DONE[t.id]?'done-item':''}" onclick="toggleTask('${t.id}')">
-          <div class="task-chk ${DONE[t.id]?'done':''}"></div>
-          <div class="task-body">
-            <div class="task-name ${DONE[t.id]?'done':''}">${t.name}</div>
-            <div class="task-meta">
-              ${t.own ? `<span class="t-tag t-own">${t.own}</span>` : ''}
-              ${duetag}${aitag}
-            </div>
-          </div>
-        </div>`;
-      }).join('')}`;
-    area.appendChild(div);
+    const secDiv = document.createElement('div');
+    secDiv.className = 'phase-section';
+    const header = document.createElement('div');
+    header.className = 'sec-header';
+    header.innerHTML = '<div class="sec-color" style="background:' + sec.color + '"></div>'
+      + '<div class="sec-title-wrap"><div class="sec-title">' + sec.sec + '</div>'
+      + '<div class="sec-count">' + done + ' / ' + app.length + ' 完成</div></div>';
+    const pbar = document.createElement('div');
+    pbar.className = 'sec-pbar';
+    pbar.innerHTML = '<div class="sec-pfill" style="width:' + pct + '%;background:' + sec.color + '"></div>';
+    secDiv.appendChild(header);
+    secDiv.appendChild(pbar);
+    app.forEach(function(t) {
+      const ds = CUR_TAB === 'before' ? dueStatus(t.ws) : null;
+      const item = document.createElement('div');
+      item.className = 'task-item' + (DONE[t.id] ? ' done-item' : '');
+      item.setAttribute('data-tid', t.id);
+      const chk = document.createElement('div');
+      chk.className = 'task-chk' + (DONE[t.id] ? ' done' : '');
+      const body = document.createElement('div');
+      body.className = 'task-body';
+      const nameRow = document.createElement('div');
+      nameRow.style.cssText = 'display:flex;align-items:center;gap:4px;';
+      const name = document.createElement('div');
+      name.className = 'task-name' + (DONE[t.id] ? ' done' : '');
+      name.style.flex = '1';
+      name.textContent = t.name;
+      nameRow.appendChild(name);
+      if (HINTS[t.id]) {
+        const hbtn = document.createElement('button');
+        hbtn.className = 'hint-btn';
+        hbtn.textContent = '?';
+        hbtn.title = 'SOP 說明';
+        (function(tid){ hbtn.addEventListener('click', function(e){ e.stopPropagation(); showHint(tid); }); })(t.id);
+        nameRow.appendChild(hbtn);
+      }
+      const meta = document.createElement('div');
+      meta.className = 'task-meta';
+      if (t.own) {
+        const owntag = document.createElement('span');
+        owntag.className = 't-tag t-own';
+        owntag.textContent = t.own;
+        meta.appendChild(owntag);
+      }
+      if (ds && !DONE[t.id]) {
+        const duetag = document.createElement('span');
+        duetag.className = 't-tag ' + ds.cls;
+        duetag.textContent = ds.label;
+        meta.appendChild(duetag);
+      }
+      body.appendChild(nameRow);
+      body.appendChild(meta);
+      item.appendChild(chk);
+      item.appendChild(body);
+      item.addEventListener('click', function() { toggleTask(t.id); });
+      secDiv.appendChild(item);
+    });
+    area.appendChild(secDiv);
+    hasAny = true;
   });
   if (!hasAny) area.innerHTML = '<div class="empty-phase">此階段沒有符合當前情境的任務</div>';
 }
-
 function toggleTask(id) {
   DONE[id] = !DONE[id];
   renderChecklist();
@@ -887,64 +945,87 @@ function updateStats() {
 function renderGantt() {
   const MAX_PRE = Math.min(WEEKS_BEFORE, 14);
   const cols = [];
-  for (let w = MAX_PRE; w > 0; w--) cols.push({ w, label: `前${w}W` });
+  for (let w = MAX_PRE; w > 0; w--) cols.push({ w: w, label: '前' + w + 'W' });
   cols.push({ w: 0, label: '展期' });
-  for (let w = -1; w >= -5; w--) cols.push({ w, label: `後${-w}W` });
-
+  for (let w = -1; w >= -5; w--) cols.push({ w: w, label: '後' + (-w) + 'W' });
   const today = new Date(); today.setHours(0,0,0,0);
   const todayW = EXHIBIT_DATE ? Math.round(daysBetween(today, EXHIBIT_DATE) / 7) : null;
-
-  let html = `<table class="gantt-table"><thead><tr>
-    <th style="min-width:190px;position:sticky;left:0;z-index:3;background:white">任務</th>
-    <th style="min-width:80px">負責人</th>`;
-  cols.forEach(c => {
+  let html = '<table class="gantt-table"><thead><tr>'
+    + '<th style="min-width:190px;position:sticky;left:0;z-index:3;background:white">任務</th>'
+    + '<th style="min-width:80px">負責人</th>';
+  cols.forEach(function(c) {
     const isT = todayW !== null && c.w === todayW;
-    html += `<th class="week-th${isT?' today-th':''}">${c.label}${isT?'▼':''}</th>`;
+    html += '<th class="week-th' + (isT ? ' today-th' : '') + '" data-w="' + c.w + '">' + c.label + (isT ? '▼' : '') + '</th>';
   });
-  html += `</tr></thead><tbody>`;
-
-  [['before','事前籌備'],['during','事中執行'],['after','事後追蹤']].forEach(([ph]) => {
-    TASKS[ph].forEach(sec => {
+  html += '</tr></thead><tbody>';
+  [['before'],['during'],['after']].forEach(function(arr) {
+    const ph = arr[0];
+    TASKS[ph].forEach(function(sec) {
       const app = sec.tasks.filter(isOn);
       if (!app.length) return;
-      html += `<tr class="gantt-sec-row"><td colspan="${cols.length+2}"><span class="gantt-sec-label" style="color:${sec.color}">${sec.sec}</span></td></tr>`;
-      app.forEach(t => {
+      html += '<tr class="gantt-sec-row"><td colspan="' + (cols.length+2) + '"><span class="gantt-sec-label" style="color:' + sec.color + '">' + sec.sec + '</span></td></tr>';
+      app.forEach(function(t) {
         const isDone = DONE[t.id];
-        html += `<tr>
-          <td style="position:sticky;left:0;background:white;z-index:1">
-            <div class="g-name${isDone?' done':''}" title="${t.name}">${t.name}</div>
-          </td>
-          <td><div class="g-own">${t.own||''}</div></td>`;
-        cols.forEach(c => {
-          const inBar = c.w <= t.ws && c.w > t.ws - t.wd;
+        const adj = ADJ[t.id] || { ws: t.ws, wd: t.wd };
+        const isAdj = !!ADJ[t.id];
+        html += '<tr><td style="position:sticky;left:0;background:white;z-index:1"><div class="g-name' + (isDone ? ' done' : '') + '" title="' + t.name + '">' + t.name + (isAdj ? ' <span class="adj-badge">已調整</span>' : '') + '</div></td>'
+          + '<td><div class="g-own">' + (t.own||'') + '</div></td>';
+        cols.forEach(function(c) {
+          const inBar = c.w <= adj.ws && c.w > adj.ws - adj.wd;
           const isT = todayW !== null && c.w === todayW;
-          html += `<td class="gcell${isT?' today-col':''}">${inBar ? `<div class="gbar${isDone?' dimmed':''}" style="background:${sec.color}"></div>` : ''}</td>`;
+          html += '<td class="gcell' + (isT ? ' today-col' : '') + '" data-w="' + c.w + '">'
+            + (inBar ? '<div class="gbar' + (isDone ? ' dimmed' : '') + '" style="background:' + sec.color + '" data-tid="' + t.id + '" data-ws="' + adj.ws + '" data-wd="' + adj.wd + '"></div>' : '')
+            + '</td>';
         });
-        html += `</tr>`;
+        html += '</tr>';
       });
     });
   });
-  html += `</tbody></table>`;
+  html += '</tbody></table>';
   document.getElementById('ganttArea').innerHTML = html;
+  initDrag();
 }
 
-/* ════════════════════════════════
-   DOWNLOAD
-════════════════════════════════ */
+
 function buildRows() {
-  const rows = [['階段','分類','任務','負責人','截止日期','狀態']];
+  const rows = [['=== 任務清單 ===','','','','','']];
+  rows.push(['階段','分類','任務','負責人','計畫截止日','狀態']);
   const phMap = { before:'事前', during:'事中', after:'事後' };
-  Object.entries(phMap).forEach(([ph, label]) => {
-    TASKS[ph].forEach(sec => {
-      sec.tasks.filter(isOn).forEach(t => {
-        const dl = getDeadline(t.ws);
-        const dlStr = dl ? fmtDate(dl) : ph === 'during' ? '展期' : '';
-        rows.push([label, sec.sec, t.name, t.own||'', dlStr, DONE[t.id]?'已完成':'待執行']);
+  Object.entries(phMap).forEach(function(entry) {
+    const ph = entry[0], label = entry[1];
+    TASKS[ph].forEach(function(sec) {
+      sec.tasks.filter(isOn).forEach(function(t) {
+        const adj = ADJ[t.id] || { ws: t.ws };
+        const dl = getDeadline(adj.ws);
+        const dlStr = dl ? fmtDate(dl) : (ph === 'during' ? '展期' : '');
+        rows.push([label, sec.sec, t.name, t.own||'', dlStr + (ADJ[t.id] ? ' (已調整)' : ''), DONE[t.id] ? '已完成' : '待執行']);
+      });
+    });
+  });
+  rows.push(['','','','','','']);
+  rows.push(['=== 甘特圖時程 ===','','','','','']);
+  const MAX_PRE = Math.min(WEEKS_BEFORE, 14);
+  const cols = [];
+  for (let w = MAX_PRE; w > 0; w--) cols.push({ w: w, label: '前' + w + 'W' });
+  cols.push({ w: 0, label: '展期' });
+  for (let w = -1; w >= -5; w--) cols.push({ w: w, label: '後' + (-w) + 'W' });
+  rows.push(['任務','負責人','狀態'].concat(cols.map(function(c) { return c.label; })));
+  [['before'],['during'],['after']].forEach(function(arr) {
+    TASKS[arr[0]].forEach(function(sec) {
+      const app = sec.tasks.filter(isOn);
+      if (!app.length) return;
+      rows.push([sec.sec,'',''].concat(cols.map(function() { return ''; })));
+      app.forEach(function(t) {
+        const adj = ADJ[t.id] || { ws: t.ws, wd: t.wd };
+        rows.push([t.name, t.own||'', DONE[t.id]?'✓':''].concat(cols.map(function(c) {
+          return (c.w <= adj.ws && c.w > adj.ws - adj.wd) ? '█' : '';
+        })));
       });
     });
   });
   return rows;
 }
+
 function dlCSV() {
   const rows = buildRows();
   const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
@@ -965,6 +1046,91 @@ function dl(blob, suffix) {
    AI
 ════════════════════════════════ */
 
+
+/* ════ ADJUSTMENT PERSISTENCE ════ */
+function saveAdj() {
+  try {
+    const key = 'xz_adj_' + (document.getElementById('eName').value.trim() || 'default');
+    localStorage.setItem(key, JSON.stringify(ADJ));
+  } catch(e) {}
+}
+function loadAdj() {
+  try {
+    const key = 'xz_adj_' + (document.getElementById('eName').value.trim() || 'default');
+    const saved = localStorage.getItem(key);
+    if (saved) Object.assign(ADJ, JSON.parse(saved));
+  } catch(e) {}
+}
+function resetAdj() {
+  if (!confirm('確定要還原所有任務到預設時程嗎？')) return;
+  Object.keys(ADJ).forEach(function(k) { delete ADJ[k]; });
+  saveAdj(); renderGantt(); showToast('已還原預設時程');
+}
+
+/* ════ DRAG TO ADJUST GANTT ════ */
+function initDrag() {
+  const table = document.querySelector('.gantt-table');
+  if (!table) return;
+  const thCells = Array.from(table.querySelectorAll('th.week-th'));
+  if (!thCells.length) return;
+  let dragState = null;
+
+  function getCellWidth() { return thCells[0].offsetWidth || 38; }
+
+  table.addEventListener('mousedown', function(e) {
+    const bar = e.target.closest ? e.target.closest('.gbar') : null;
+    if (!bar) return;
+    e.preventDefault();
+    bar.classList.add('dragging');
+    dragState = { tid: bar.dataset.tid, startWs: parseInt(bar.dataset.ws), startWd: parseInt(bar.dataset.wd), startX: e.clientX, bar: bar };
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!dragState) return;
+    const wShift = Math.round((e.clientX - dragState.startX) / getCellWidth());
+    if (wShift !== 0) ADJ[dragState.tid] = { ws: Math.max(-5, Math.min(16, dragState.startWs - wShift)), wd: dragState.startWd };
+  });
+  document.addEventListener('mouseup', function() {
+    if (!dragState) return;
+    dragState.bar.classList.remove('dragging');
+    const tid = dragState.tid;
+    dragState = null;
+    if (ADJ[tid]) { saveAdj(); renderGantt(); showToast('時程已調整並儲存'); }
+  });
+}
+
+
+var HINTS = {"b1": {"tag": "① 策展定位", "title": "展會市場與競品分析", "steps": ["向主辦單位取得展商名單，列出周邊 10 家廠商，記錄各家歷年主訴方案與議題關鍵字", "瀏覽各家官網與去年展場照片，整理「他們在訴求什麼」，找出市場空白或論述缺口", "產出友商對比一頁紙，交主管確認差異化定位方向"], "tip": "📌 展前 3 個月完成，是所有策展定位的輸入源頭。2025 範例：IT×OT+AI 填補純 OT 廠商的軟體論述缺口"}, "b2": {"tag": "① 策展定位", "title": "參展模式確認與分工", "steps": ["評估聯展 vs 獨展：聯展可降低費用，但個體品牌聲量會被稀釋、洽談空間縮減", "若選聯展，召開夥伴啟動會確認攤位格數、費用分攤方式、決策流程與聯絡窗口", "簽訂聯展合作備忘錄，明訂品牌露出面積比例與共用素材授權規則，避免後期爭議"], "tip": "⚠️ 2025 教訓：聯展省費用，但各家方案導覽空間縮減，商機訪談量不如獨展；需在策展初期就評估取捨"}, "b3": {"tag": "① 策展定位", "title": "主題文案與議題定位", "steps": ["根據競品分析發想 3-5 個主題方向，測試每個能否延伸到主視覺、演說、新聞稿、社群文案", "產出主副標：主標 10 字以內 + 副標說明句", "若有聯展夥伴，各家確認後正式鎖定，不再更改，發給設計、公關、業務各組"], "tip": "📌 主題一旦確定，是後續所有內容的北極星；主題模糊，現場論述就會散"}, "b4": {"tag": "① 策展定位", "title": "召開聯展夥伴啟動會", "steps": ["確認各家攤位格數、費用分攤方式、品牌露出面積比例", "指定各家聯絡窗口與決策流程", "簽訂合作備忘錄，明訂規則避免後期爭議"], "tip": "聯展合作細節越早確認越好，展前 3 個月是最晚底線"}, "b5": {"tag": "① 策展定位", "title": "設定展會 KPI 目標", "steps": ["拉歷年數據基準：MQL 成本、自然人拉新率、精準受眾佔比等歷史數據", "根據本次預算與展覽規模設定合理目標區間（預算縮減則調降 MQL 目標）", "分別設定引流目標（MQL、拉新率、私田觸及率），主管確認後公告全員"], "tip": "📊 2024 MQL 1,958 人；2025 MQL 4,829 人、拉新率 77%、商機轉化率 9%"}, "b6": {"tag": "① 策展定位", "title": "預算申請核定", "steps": ["依歷年費用結構估算：場租/施工/新技術/宣傳/雜支", "聯展費用確認哪些均攤（施工、電力）、哪些各自負擔（宣傳、內容製作）", "各類費用取得主管核准；保留 5 萬預備金用於突發設備維修或臨時採購"], "tip": "📌 2025 實際 86.6 萬 / 預算 90 萬；詳細費用結算是下次預算規劃最可靠的輸入"}, "b7": {"tag": "② 展場規劃", "title": "攤位申請與空間動線規劃", "steps": ["向主辦申請攤位，優先搶主走道；位置差異可影響自然人流 30% 以上", "依格數規劃各區域：舞台區（演說聚人）、方案展示區（DEMO）、洽談座位區（深談）", "繪製訪客動線圖：進場→舞台駐足→方案體驗→洽談，確保流動不卡住、不塞人"], "tip": "📌 攤位申請：展前 3-6 個月；動線定稿：展前 6-8 週"}, "b8": {"tag": "② 展場規劃", "title": "展位吸睛特色設計", "steps": ["決定一個主視覺焦點（大型 LED 牆、主題裝置或互動設備），讓展位在走道上一眼可識別", "主標語夠大夠直白：路過 5 公尺外就能看懂在做什麼，避免只有內部人懂的術語", "規劃展位外圍攔截機制：SG 站位、贈品展示點、互動誘因吸引人停下腳步"], "tip": "✅ 2025 有效做法：AI 數字人的外型與互動新奇感，成為最強自然攔截工具，帶來 MQL 497 人"}, "b9": {"tag": "② 展場規劃", "title": "訪客接待流程設計", "steps": ["純路過客：SG 或遊戲快速留資（低門檻）", "有興趣：站著聽 3-5 分鐘 DEMO + 展會助理登打", "有需求：坐下深談 10-15 分鐘 + 展會助理登打，確認登打時機"], "tip": "方案展示以眼見為憑為原則，可互動的 DEMO 體驗比純簡報有效；螢幕展示需配合顧問口頭解說，客戶才能想像場景"}, "b10": {"tag": "② 展場規劃", "title": "展期活動規劃", "steps": ["舞台定點導覽每日 1-2 場（如 10:30/14:00），固定時長，設計不同主題", "線下看展團：展期固定時段（如 13:30），導覽路線針對受眾痛點客製化", "製作每日活動時間表，張貼在展位入口，也作為排班人員的場次依據"], "tip": "📌 固定場次讓路過訪客知道等一下有活動，提高駐足率；無固定場次的展位常被快速略過"}, "b11": {"tag": "② 展場規劃", "title": "硬體設備清單與廠商簽約", "steps": ["依設計圖列出完整硬體清單：電視牆尺寸台數、音響麥克風、平板台數、桌椅數量", "體驗裝置另找專案廠商：確認軟體串接方式、備援方案、展場網路需求、展前測試日期", "建立設備追蹤表：廠商、確認狀態、進場日期、緊急聯絡方式"], "tip": "進場前一天全設備清點，確認到位並完成基礎功能測試與每天設備開關交接清單"}, "b12": {"tag": "② 展場規劃", "title": "行政申請（水電、網路）", "steps": ["向主辦索取行政申請表，確認截止日期（通常展前 3-4 週，超時加數倍費用）", "電力申請：計算所有設備總用電量，申請對應安培數，建議多抓 20% 緩衝", "網路申請：體驗裝置、直播如需穩定頻寬，不能用展場共用 Wi-Fi；壓縮空氣（如有 OT 設備）一併申請"], "tip": "超過截止日才申請費用會暴增，這件事要列入最早期的時間節點"}, "b13": {"tag": "③ 內容製作", "title": "主視覺設計與輸出物製作", "steps": ["確認製作物清單：大型背板、電視牆素材、手拿板、桌面立牌、紙本 DM、X 架、展會 Landing Page", "給設計師的 Brief：主題文案定案版 + 各物料尺寸規格 + 品牌色規範 + 各家 LOGO（聯展）", "設計稿確認流程：內部確認→聯展夥伴確認→送印，需預留 3 天修改時間"], "tip": "送印時間：大型輸出展前 2-3 週、小型物料展前 1-2 週；建議印前再次核對尺寸與文字"}, "b14": {"tag": "③ 內容製作", "title": "方案展示 PPT 與 DEMO 錄影", "steps": ["以一次 5-8 分鐘導覽規劃，每方案 5-8 頁，重點在場景故事而非功能列表", "錄製實際操作 DEMO 畫面（錄影比現場 live demo 穩定，避免網路延遲）", "整合後在模擬展場環境跑一遍完整接待流程，確認畫面順暢、切換無誤"], "tip": "✅ 關鍵原則：眼見為憑。可互動體驗的 DEMO 比純簡報更能引發客戶共鳴，進入洽談的機率明顯提升"}, "b15": {"tag": "③ 內容製作", "title": "舞台主題影片製作", "steps": ["舞台主題影片 3-5 分鐘：包含品牌介紹、貫穿聯展主題，用來吸引走道人流駐足", "由影視組製作，展前 1 週定稿", "在展場電視牆確認播放效果"], "tip": "影片主要讓路過的人停下腳步，不需要太詳細的產品說明"}, "b16": {"tag": "③ 內容製作", "title": "互動體驗裝置規劃製作", "steps": ["規劃展會互動裝置與形式：現場實體裝置或網頁版，設計完整體驗企劃", "確認製作方式：委外廠商或內部製作，廠商提案比價，確認開發時程與報價", "展會前抓兩次驗收檢核時間，最晚須於進場前一天完成"], "tip": "✅ 2025 成效：AI 數字人 MQL 497 人，拉新率 87%，是陌生引流最有效工具；就享知地推 MQL 3,898 人，是最大線索來源"}, "b17": {"tag": "③ 內容製作", "title": "展會助理設計與系統串接", "steps": ["設計欄位：對談方案（複選）、感興趣話題、客戶意向（單選：暫無需求/了解趨勢/有需求找方案/尋找合作）", "確認系統串接：展會助理→ACP 數據比對→展後自動觸發三種分流（業務私田/電銷商機/行銷餵養）", "用假資料模擬完整流程，確認資料正確落庫，展前 3 天完成"], "tip": "展會助理改單選是 2025 商機轉化率從 4% 提升至 9% 的兩個關鍵因素之一"}, "b18": {"tag": "③ 內容製作", "title": "聯展聯合型錄與聯名宣傳圖", "steps": ["確認聯合型錄規格：總頁數、各家方案頁數比例、封面/封底設計歸誰主導", "各家提供方案簡介稿（約 200-300 字 + 圖片），統一交設計排版", "製作聯展宣傳圖（合作 KV、社群版本），確認各家 LOGO 露出比例"], "tip": "其他置入合作方式最晚展前 3 週確認，否則會壓縮籌備時間"}, "b19": {"tag": "④ 宣傳規劃", "title": "自媒體多渠道內容排程", "steps": ["排定內容節奏：展前 4 週議題種草→展前 1 週看點預告→展中即時報導→展後長尾回顧", "確認每則貼文的主題、渠道、發布時間、負責人、搭配素材，集中在一張排程表管理", "若有聯展夥伴，確認各家發文時間不衝突，並安排互相轉發的關鍵貼文"], "tip": "📌 2025 數據：FB 42,625、IG 18,553、YT 15,475；三家聯展讓內容量大幅提升，有效擴大觸及範圍"}, "b19b": {"tag": "④ 宣傳規劃", "title": "廣告投放策略規劃", "steps": ["確認廣告目標（品牌曝光/名單蒐集/活動報名）", "規劃受眾設定、預算分配與投放平台（FB、IG、LinkedIn）", "確認廣告素材需求，與設計組對齊製作時程，提前 2 週確認"], "tip": "廣告素材要與展覽主視覺一致，審核也需要時間，不能太晚啟動"}, "b20": {"tag": "④ 宣傳規劃", "title": "精準客群邀約", "steps": ["從 ACP 篩選目標行業 + 高階 + 有興趣但尚未成交的潛在客戶名單", "發送邀約訊息（LINE/Email），含展會時間、場次亮點、參觀可獲得什麼", "展前 3 天確認出席名單，通知場控安排接待座位與對應導覽人員"], "tip": "邀約訊息要具體，例如：現場可看到 AI 實際控制機器手臂異常排查，具體描述才能吸引到場"}, "b21": {"tag": "④ 宣傳規劃", "title": "精準客戶行業客製化導覽", "steps": ["規劃展期固定時段的行業客製化導覽（如 13:30），時長 30-45 分鐘", "由導覽人員帶領，導覽路線針對受眾痛點客製化", "展前確認到場名單，安排對應的資深導覽人員"], "tip": "精準場次客戶意向通常較高，要確保有資深顧問接待，不能安排新手"}, "b22": {"tag": "④ 宣傳規劃", "title": "業務說明會", "steps": ["展前 1-2 週辦業務說明會（30 分鐘）：展覽 3 大看點、主推方案重點、業務可帶哪類客戶", "說明商機追蹤機制：業務帶來的客戶如何被識別、如何跟進、如何與績效掛鉤", "預留 Q&A 時間，收集業務邀客障礙，當場提供話術支援"], "tip": "📌 業務不清楚展覽能帶來什麼就不會主動邀客；說明會結束後當天打包發送邀約工具包，趁業務最有動力時行動"}, "b23": {"tag": "⑤ 公關", "title": "邀約媒體/KOL 參觀展位", "steps": ["確認媒體/KOL 邀訪名單，區分採訪媒體與純參觀 KOL", "發送邀請含展會時間、展位位置、可採訪主題與亮點", "安排對應接待人員，準備媒體包（新聞稿、產品圖、高管 bio）"], "tip": "媒體參觀不一定要辦記者會，安排 1v1 專訪往往比大型記者會更有效且訊息更精準"}, "b24": {"tag": "⑤ 公關", "title": "起草新聞稿", "steps": ["起草新聞稿，確保有媒體願意直接使用的可引用金句，而非只有公司官方說法", "內容涵蓋：核心訊息 1-2 個、數據佐證、高管引言", "內部審閱確認，準備對外發送版本"], "tip": "金句原則：讓記者可以直接引用，避免太行銷化的說法"}, "b25": {"tag": "⑤ 公關", "title": "新聞稿對外發送", "steps": ["確認媒體清單並分級（目標媒體/一般媒體）", "選擇適當時機發送（展前讓媒體有時間安排採訪）", "發送後 2-3 天追蹤是否收到，確認是否會報導"], "tip": "新聞稿單獨發出也能帶來搜尋曝光，不需要等記者會"}, "b26": {"tag": "⑤ 公關", "title": "記者會流程規劃", "steps": ["確定舉辦形式（小型 10-15 人 or 大型），確認核心訊息 1-2 個", "規劃流程：媒體報到→產品展示→高層致詞 5 分→技術亮點 10 分→媒體問答 15 分", "準備媒體問答 Q&A（10-15 題），供現場主持使用，避免訊息跑偏"], "tip": "✅ 2025 成效：以小型記者會傳遞 AI Agent 訊息，帶動 AI 相關字自然搜尋成長 25%"}, "b27": {"tag": "⑤ 公關", "title": "發送記者會媒體邀請", "steps": ["展前 3 週發媒體邀請，含場次時間、議題亮點、確認出席截止日", "展前 3 天確認出席名單，安排接待座位", "當天安排媒體報到流程，準備名牌與媒體包"], "tip": "小型記者會（10-15 人）比大型更容易控制訊息品質，媒體互動也更深入"}, "b28": {"tag": "⑥ 人員賦能", "title": "各組分工表確認", "steps": ["建立分工表，各組指定一位負責人與主要任務範疇；聯展夥伴也需列出各組對應窗口", "建立跨組共用協作平台：設計組從內容組接稿、場控組從規劃組接排班", "發布 Kick-off 啟動信，附上完整分工表與關鍵時間節點，所有人對齊"], "tip": "跨組協作平台要提前建好，讓每個人知道找誰拿什麼"}, "b29": {"tag": "⑥ 人員賦能", "title": "展期排班表", "steps": ["列出所有崗位：場控、接待、SG 地推、主持人、舞台演講、方案導覽、影視記錄、夥伴協調", "製作排班表：進場日（設備安裝）→展覽期間（整天/上下午班）→退場日，每天標注各崗位負責人", "展前 1 週發送確認，收集不能出席的異動，完成最終版本"], "tip": "可搭配設計激勵機制，以誘因強化現場人員攬客動力；每個崗位都要有備援"}, "b30": {"tag": "⑥ 人員賦能", "title": "品牌與產品論述培訓", "steps": ["展前 3-5 天辦培訓（30-60 分鐘）：展覽目標、主題論述、主推方案重點、品牌訊息要點", "教接待人員辨識有需求 vs 只是路過，對應不同接待深度與登打方式", "展會助理工具演練：模擬客戶進場→問答→登打→分流完整流程；發放現場導覽快速參考卡"], "tip": "📌 接待人員對目標認同感越高，商機登打品質越好；培訓時強調每一筆完整登打直接影響後續跟進成效"}, "d1": {"tag": "① 線索獲取", "title": "每日開展前 briefing", "steps": ["昨天成果回顧：名片總數、各方案洽談家數、體驗裝置 MQL 數", "今日目標人數、主推哪個方案", "地推口語 2 句話：SG 攔截用的話術確認"], "tip": "Briefing 控制在 10 分鐘內，人員要在開展前到位完成準備"}, "d2": {"tag": "① 線索獲取", "title": "SG 地推攔截", "steps": ["SG 在主走道攔截，邀請進展位看 DEMO 或參與互動", "誘因設計：掃碼/互動可獲贈品（品牌小物、LINE POINTS）；獎金制度：帶進 N 人拿 Y 元", "每日統計 SG 帶入人數，納入成效彙整與隔天優化方向"], "tip": "SG 主要目標是拿到線索，不需要深講產品"}, "d3": {"tag": "① 線索獲取", "title": "顧問洽談與展會助理登打", "steps": ["洽談流程：交換名片→了解客戶背景 3 分→場景討論 10 分→簡介方案 3 分→登打資料", "登打原則：洽談結束當下即打，不要積到事後才補，細節越晚越容易忘記", "重點欄位：客戶意向（必填）+ 可推進方案 + 洽談總結"], "tip": "遇到無法深談的訪客：引導體驗裝置留資，或快速交換名片，標注了解趨勢，展後以內容餵養"}, "d4": {"tag": "① 線索獲取", "title": "體驗裝置每日測試與監控", "steps": ["每日開展前 30 分鐘測試：裝置啟動、網路連線穩定、留資狀況與資料拋送功能正常", "安排引導人員站在裝置旁邊口頭引導吸引參與", "每日中午與關展後確認資料是否正常拋入資料庫，若異常立即通知廠商"], "tip": "✅ 2025 成效：AI 數字人 MQL 497 人，拉新率 87%；就享知地推 MQL 3,898 人，是最大線索來源。若裝置故障立即啟動備援：SG 改手動引導"}, "d5": {"tag": "① 線索獲取", "title": "精準客戶邀約場次接待", "steps": ["確認到場名單與接待座位安排，通知對應導覽人員", "由導覽人員帶領行業客製化導覽 30-45 分鐘", "洽談後即時完成展會助理登打"], "tip": "精準場次客戶意向通常較高，要確保有資深顧問接待，不能安排新手"}, "d6": {"tag": "② 品牌擴散", "title": "媒體/KOL 到場接待", "steps": ["媒體到場確認報到，交付媒體包（新聞稿、產品高清圖）", "安排展位導覽，引導關注核心訊息，避免訊息跑偏", "預留時間讓媒體自由拍攝與提問"], "tip": "媒體接待要有公關人員全程陪同，確保品牌訊息傳遞一致"}, "d7": {"tag": "② 品牌擴散", "title": "記者會執行與新聞稿發送", "steps": ["記者會流程：媒體報到→產品展示→高層致詞 5 分→技術亮點說明 10 分→媒體問答 15 分", "記者會結束後 1 小時內，email 發送新聞稿給所有受邀媒體，附上高解析度照片、產品截圖", "記錄媒體出席名單與名片，後續追蹤報導刊出情況（1 週內確認）"], "tip": "✅ 2025 成效：以小型記者會傳遞 AI Agent 訊息，帶動 AI 相關字自然搜尋成長 25%"}, "d8": {"tag": "② 品牌擴散", "title": "追蹤媒體刊出狀況", "steps": ["展中每天確認已刊出的媒體篇數", "未刊出的媒體主動追蹤確認", "記錄各媒體報導角度，作為下次合作參考"], "tip": "刊出率是評估媒體關係效果的重要指標"}, "d9": {"tag": "② 品牌擴散", "title": "社群即時發文", "steps": ["每日 2-3 則，以現場照片/活動動態為主", "標記官方帳號並使用展覽主題標籤", "重要場次（演說、記者會）要即時發文"], "tip": "展中社群貼文的觸及數通常比平時高，把握即時性"}, "d10": {"tag": "② 品牌擴散", "title": "影視記錄素材蒐集", "steps": ["攝影清單：展位全景（空、半滿、滿人三種）、舞台演說、數字人互動、觀眾表情、洽談特寫", "當天素材上傳共用雲端資料夾，分類標注（日期/類型），方便影視後製", "影片即時標記精華片段時間點，後製參考"], "tip": "現場素材是展後長尾內容的原材料，拍越多選擇越多"}, "d11": {"tag": "② 品牌擴散", "title": "直播執行", "steps": ["直播前確認設備與網路穩定", "指定主持人或導覽員負責鏡頭前表現", "直播結束後標記精華片段時間點，方便後製"], "tip": "直播回放的觀看數往往比直播當下更多，精華標記方便後製"}, "d12": {"tag": "② 品牌擴散", "title": "聯展夥伴互引人流", "steps": ["每日確認夥伴聯合活動時間不衝突、各家導覽路線順暢", "接待人員帶領感興趣的客人參觀夥伴展區，強化聯展整體印象", "同步維護品牌獨立聲量：每次導覽清楚說明「這是鼎新的方案、這是 XX 的設備」"], "tip": "⚠️ 2025 待改善：聯展讓個體品牌聲量被稀釋，品牌字自然搜尋微降 7%；下次需加強鼎新品牌訊息的獨立強調"}, "d13": {"tag": "③ 每日優化", "title": "每日數據彙整", "steps": ["收攤後 30 分鐘，場控彙整：今日名片總數、各方案洽談家數、體驗裝置 MQL 數", "與累計目標對比：N 天過後達成了多少 %，是否需要調整隔日策略", "記錄異常事項與客戶反饋，納入隔日晨會討論"], "tip": "數據越快整理越準確，不要留到隔天；哪個話題多人問、哪個方案沒人理，都要記錄"}, "d14": {"tag": "③ 每日優化", "title": "每日晨會：前日覆盤 + 當日調整", "steps": ["開展前 30 分鐘，全體顧展人員集合，控制在 15 分鐘內", "固定討論 3 個問題：前日最有效的引流方式？最多人詢問的方案？遇到什麼阻礙？", "當場拍板調整：更換 SG 話術、加強特定方案說明、補充設備或臨時調動人力"], "tip": "每日調整決策要記錄，累積為展後改善建議的一手素材"}, "d15": {"tag": "③ 每日優化", "title": "突發狀況處理 SOP", "steps": ["展前建立緊急聯絡清單：場控負責人、各設備廠商、互動裝置廠商窗口、主辦服務台", "互動裝置故障：通知廠商 + SG 改手動地推 + 接待人員直接問答，不中斷接待流程", "設備黑屏：先重開，超過 5 分鐘立刻聯絡施工廠商；人員缺席：啟動備援名單，優先確保洽談區不缺人"], "tip": "緊急聯絡清單要印出來放在展位，手機沒電時還能找到"}, "a1": {"tag": "① 會後黃金期", "title": "線索整理與電銷面板派送", "steps": ["線索清洗：去除重複、補齊缺漏的公司名/聯絡方式、確認行業分類正確", "線索分流邏輯：尋找合作→渠道業務接洽、有需求找方案→電銷跟進、了解趨勢→行銷內容餵養", "名單整理完請資管當天完成面板派送，通知各群負責人啟動跟進"], "tip": "⚠️ 關鍵時效：72 小時內首次接觸，回應率最高；超過 1 週，客戶記憶衰退，成功率大幅下降"}, "a2": {"tag": "① 會後黃金期", "title": "電銷跟進", "steps": ["電銷開場話術：我是鼎新的 OO，上次在展覽見面，您對 XX 有興趣，想再進一步聊聊", "與負責人設定 3-5 個工作天完成名單聯繫，確保 7 天內所有高意向名單都被觸達", "每通電話結果（約訪/再聯絡/無需求）即時統計更新"], "tip": "✅ 2025 成效：商機轉化率從 2024 的 4% 提升至 9%；展會助理改單選 + 黃金期電銷是兩個關鍵因素"}, "a3": {"tag": "① 會後黃金期", "title": "展後感謝信分眾觸達", "steps": ["依感興趣話題分眾（科普/場景故事/研發技術/方案介紹），各對應不同首封內容方向", "感謝信內容：展會精華回顧 1-2 張圖 + 對應方案介紹連結 + 推薦 CTA（諮詢/活動/資料/文章）", "72 小時內完成所有人的首封 EDM 發送，趁熱度還在"], "tip": "會後一個月持續自動化分眾觸及，追蹤開信率與點擊率，識別有進一步興趣的人，標注後交給電銷跟進"}, "a4": {"tag": "① 會後黃金期", "title": "業務私田線索提供", "steps": ["展後七個工作天內，整理來訪的私田客戶清單，通知責任業務提供客情資料", "市場提供內容素材（感謝信模板、方案一頁紙）協助業務維繫關係", "結合業務面板聯繫任務卡，通知業務完成連繫後進行回覆"], "tip": "業務私田客戶往往是意向最高的一批，要確保有人跟進，觀察後續商機推進狀況"}, "a5": {"tag": "① 會後黃金期", "title": "媒體刊出篇數追蹤", "steps": ["追蹤品牌字與 AI 相關字的自然搜尋量變化（Google Trends / GA）", "統計最終媒體刊出篇數，與目標對比，確認媒體效益", "分析：品牌字成長=品牌知名效益；AI 相關字成長=關鍵訊息傳遞成功"], "tip": "展後 2-4 週追蹤，給足時間讓搜尋量反映"}, "a6": {"tag": "② 成效結算", "title": "獲客成效結算", "steps": ["數據截止日：展後 2-3 週（給足時間讓所有線索跟進、業務私田回報與更新資料庫）", "核心指標：MQL 總數、MQL 成本、自然人拉新率、法人拉新率", "各指標與目標對比，說明超標或落後的原因，產出成效報告送主管"], "tip": "精準度指標：精準行業佔比、AB 職級（經營層 + 管理層）佔比"}, "a7": {"tag": "② 成效結算", "title": "各渠道引流成效分析", "steps": ["彙整所有渠道數據：FB/IG/YT/就享知/外媒/顧問洽談/數字人/直播報名/SG 地推", "計算每個渠道的「觸及人數→MQL 轉換率」，找出有流量但無留量的弱點", "識別高 ROI 渠道（值得下次加碼）與低 ROI 渠道（需改善或縮減投入）"], "tip": "提出下次渠道資源分配建議，作為下次預算規劃的輸入"}, "a8": {"tag": "② 成效結算", "title": "費用結算", "steps": ["收齊所有發票與核銷單，依類別（場租/施工/技術/宣傳/雜支）分類", "逐項對比申請預算 vs 實際費用，標注差異原因", "聯展另行說明三方分攤明細，確認各家實際負擔金額"], "tip": "📌 2025 實際 86.6 萬 / 預算 90 萬；詳細的費用結算是下次預算規劃最可靠的輸入"}, "a9": {"tag": "③ 長尾擴散", "title": "整理業務可用素材彈藥庫", "steps": ["整理業務可用素材清單：方案一頁紙、方案影片連結、聯合型錄、案例故事、常見客戶 FAQ", "把展覽宣傳語言改寫為業務洽談語言：從體驗 AI 未來改成這個功能可以幫你解決 OO 問題", "主動發送任務卡給責任業務，附上使用說明「這些材料怎麼用、用在哪種客戶、轉發信件範例」"], "tip": "📌 要在對的時間點推送，業務才會用；主動推送時附上使用說明，使用率才會高"}, "a10": {"tag": "③ 長尾擴散", "title": "展後社群精華回顧發文", "steps": ["展後 1 週內發布 1-2 則精華回顧", "形式：展場照片 + 數據成果 + 亮點回顧", "標記合作夥伴帳號並互動擴散"], "tip": "精華回顧是向沒有到場的受眾補充曝光的機會"}, "a11": {"tag": "③ 長尾擴散", "title": "建立長尾內容排程", "steps": ["建立會後內容排程：展後 1-8 週，每週 2-3 則，形式多元輪換", "再包裝形式：體驗裝置線上版/延伸資料下載/展覽精華回顧/夥伴採訪系列/議題延伸文章/常見 FAQ", "聯展夥伴的採訪影片互相分享，延伸聯展話題聲量"], "tip": "長尾內容持續產出，讓展會投資的效益持續發酵"}, "a12": {"tag": "③ 長尾擴散", "title": "直播精華剪輯上架 / LDP 補充 SEO", "steps": ["展後 3 天內剪輯精華版（15-20 分鐘）上架就享知", "方案 LDP 確保展後持續存在，加入 SEO 關鍵字，讓主動搜尋者可以找到", "方案型錄 PDF 上架，供業務使用和客戶直接下載"], "tip": "直播回放讓沒有到場的受眾也能看到展會內容"}, "a13": {"tag": "④ 經驗傳承", "title": "三維度成功要素提煉", "steps": ["引流：哪個方法帶來最多人？哪個方法帶來最精準的人？（如吸睛 DEMO 體驗/SG 地推拉客）", "轉化：什麼讓商機轉化率提升？（如展會助理改單選/展後黃金期電銷跟進）", "擴散：什麼帶來最多品牌聲量？什麼讓業務素材真正被使用？"], "tip": "每個有效要素要附上數據佐證，讓下次新手也知道為什麼要這樣做"}, "a14": {"tag": "④ 經驗傳承", "title": "不足之處與改善建議", "steps": ["回顧每日晨會記錄，整理四天累積的問題清單", "每個不足點，必須寫出下次具體改善方案，不能只列問題沒有行動建議", "依影響程度排出優先改善的前 3 項，並指定每項的負責人與完成時間"], "tip": "改善建議要具體到「誰、做什麼、什麼時候完成」，否則只是紙上談兵"}, "a15": {"tag": "④ 經驗傳承", "title": "更新 SOP 文件回展會知識庫", "steps": ["在各步驟中加入本次調整或本次驗證有效的標注，讓後人知道哪些是最佳實踐", "更新版本號與日期（如 v2025-AutoExpo），讓新進人員能辨識最新版本", "新增本次引入的新工具/流程，發送更新通知給部門夥伴"], "tip": "每次展後更新一版，讓這份文件成為真正可傳承的指南，不要憑印象做事"}};
+function showHint(tid){
+  var h=HINTS[tid]; if(!h) return;
+  document.getElementById('hTag').textContent=h.tag;
+  document.getElementById('hTitle').textContent=h.title;
+  var el=document.getElementById('hSteps'); el.innerHTML='';
+  h.steps.forEach(function(s,i){
+    var d=document.createElement('div'); d.className='hint-step';
+    d.innerHTML='<div class="hint-num">'+(i+1)+'</div><div class="hint-txt">'+s+'</div>';
+    el.appendChild(d);
+  });
+  var te=document.getElementById('hTip');
+  te.innerHTML=h.tip?'<div class="hint-tip"><b>過去經驗提醒</b>'+h.tip+'</div>':'';
+  document.getElementById('hintOverlay').classList.add('open');
+}
+function closeHint(){
+  document.getElementById('hintOverlay').classList.remove('open');
+}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeHint();});
+
 </script>
+
+<div class="hint-overlay" id="hintOverlay" onclick="if(event.target===this)closeHint()">
+  <div class="hint-card">
+    <div class="hint-tag" id="hTag"></div>
+    <div class="hint-title" id="hTitle"></div>
+    <div class="hint-sec">執行步驟</div>
+    <div class="hint-steps" id="hSteps"></div>
+    <div id="hTip"></div>
+    <button class="hint-close" onclick="closeHint()">關閉</button>
+  </div>
+</div>
+
 </body>
 </html>
