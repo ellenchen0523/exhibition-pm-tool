@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>展會 PM 規劃助手</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --blue-900: #0a2540;
+  --blue-800: #0d3260;
+  --blue-700: #1a4a8a;
+  --blue-600: #1d5faa;
+  --blue-500: #2271c3;
+  --blue-400: #4a90d9;
+  --blue-100: #ddeeff;
+  --blue-50:  #eef6ff;
+  --teal-600: #0f6e56;
+  --teal-50:  #e1f5ee;
+  --amber-700: #854f0b;
+  --amber-50:  #faeeda;
+  --red-700:  #a32d2d;
+  --red-50:   #fcebeb;
+  --green-700:#3b6d11;
+  --green-50: #eaf3de;
+  --gray-900: #1a1a1a;
+  --gray-700: #3d3d3d;
+  --gray-500: #6b6b6b;
+  --gray-300: #c2c2c2;
+  --gray-100: #f0f0f0;
+  --gray-50:  #f8f8f8;
+  --white:    #ffffff;
+  --border:   #e0e6ed;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.08);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.1);
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
+  --r-pill: 999px;
+}
+html { font-size: 14px; }
+body {
+  font-family: 'Noto Sans TC', sans-serif;
+  background: #f2f4f8;
+  color: var(--gray-900);
+  min-height: 100vh;
+  line-height: 1.6;
+}
+
+/* ── Layout Shell ── */
+.shell {
+  max-width: 1280px;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--white);
+  box-shadow: var(--shadow-md);
+}
+
+/* ── Header ── */
+.hdr {
+  background: var(--blue-900);
+  padding: 0 2rem;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.hdr-brand { display: flex; align-items: center; gap: 12px; }
+.hdr-icon {
+  width: 32px; height: 32px; border-radius: var(--r-sm);
+  background: var(--blue-500);
+  display: flex; align-items: center; justify-content: center;
+}
+.hdr-icon svg { width: 16px; height: 16px; fill: white; }
+.hdr-title { font-size: 15px; font-weight: 700; color: white; letter-spacing: .02em; }
+.hdr-sub { font-size: 11px; color: rgba(255,255,255,.5); margin-top: 1px; }
+.hdr-badge {
+  font-size: 10px; padding: 3px 10px; border-radius: var(--r-pill);
+  background: rgba(255,255,255,.12); color: rgba(255,255,255,.6);
+  font-family: 'DM Mono', monospace;
+}
+
+/* ── Screen switching ── */
+.screen { display: none; }
+.screen.active { display: flex; flex-direction: column; flex: 1; }
+
+/* ══════════════════════════════
+   SETUP SCREEN
+══════════════════════════════ */
+.setup-wrap {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 0;
+}
+.setup-left {
+  padding: 2.5rem 2rem;
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  max-height: calc(100vh - 56px);
+}
+.setup-right {
+  padding: 2rem 1.5rem;
+  background: var(--gray-50);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  overflow-y: auto;
+  max-height: calc(100vh - 56px);
+}
+
+.setup-eyebrow {
+  font-size: 10px; font-weight: 700; letter-spacing: .1em;
+  color: var(--blue-500); text-transform: uppercase; margin-bottom: .5rem;
+}
+.setup-heading { font-size: 22px; font-weight: 700; color: var(--blue-900); line-height: 1.3; }
+.setup-desc { font-size: 13px; color: var(--gray-500); margin-top: .5rem; line-height: 1.7; }
+
+.field-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 1.5rem; }
+.field-full { grid-column: 1 / -1; }
+.field-label { font-size: 11px; font-weight: 500; color: var(--gray-700); margin-bottom: 5px; display: block; }
+.field-input {
+  width: 100%; font-size: 13px; padding: 9px 12px;
+  border: 1.5px solid var(--border); border-radius: var(--r-sm);
+  background: var(--white); color: var(--gray-900);
+  font-family: 'Noto Sans TC', sans-serif;
+  outline: none; transition: border-color .15s;
+}
+.field-input:focus { border-color: var(--blue-500); }
+.field-input[type="date"] { cursor: pointer; }
+
+.date-feedback {
+  margin-top: 8px; padding: 8px 12px; border-radius: var(--r-sm);
+  font-size: 12px; display: none; line-height: 1.5;
+}
+.date-feedback.show { display: block; }
+.date-feedback.ok { background: var(--teal-50); color: var(--teal-600); }
+.date-feedback.warn { background: var(--amber-50); color: var(--amber-700); }
+.date-feedback.urgent { background: var(--red-50); color: var(--red-700); }
+.date-feedback .days-big { font-size: 18px; font-weight: 700; display: block; margin-bottom: 2px; }
+
+.ctx-block { margin-top: 2rem; }
+.ctx-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--gray-500);
+  padding-bottom: 8px; border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+.chips-wrap { display: flex; flex-wrap: wrap; gap: 7px; }
+.cchip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 13px; border-radius: var(--r-pill);
+  border: 1.5px solid var(--border);
+  background: var(--white);
+  cursor: pointer; transition: all .12s;
+  font-size: 12px; color: var(--gray-700);
+  user-select: none;
+}
+.cchip:hover { border-color: var(--blue-400); color: var(--blue-700); background: var(--blue-50); }
+.cchip.on {
+  border-color: var(--blue-500); background: var(--blue-50);
+  color: var(--blue-700); font-weight: 500;
+}
+.cchip .cdot {
+  width: 8px; height: 8px; border-radius: 50%;
+  border: 2px solid var(--gray-300); flex-shrink: 0;
+  transition: all .12s;
+}
+.cchip.on .cdot { background: var(--blue-500); border-color: var(--blue-500); }
+
+/* Right panel summary */
+.summary-card {
+  background: var(--white); border: 1px solid var(--border);
+  border-radius: var(--r-md); padding: 1.25rem;
+}
+.summary-title { font-size: 11px; font-weight: 700; color: var(--gray-500); letter-spacing: .06em; text-transform: uppercase; margin-bottom: 12px; }
+.summary-stat { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--gray-100); }
+.summary-stat:last-child { border-bottom: none; }
+.summary-stat-label { font-size: 12px; color: var(--gray-500); }
+.summary-stat-val { font-size: 15px; font-weight: 700; color: var(--blue-700); font-family: 'DM Mono', monospace; }
+.ctx-selected { display: flex; flex-direction: column; gap: 5px; }
+.ctx-pill-sm {
+  font-size: 11px; padding: 3px 9px; border-radius: var(--r-pill);
+  background: var(--blue-50); color: var(--blue-700);
+  display: inline-block; align-self: flex-start;
+}
+.empty-hint { font-size: 12px; color: var(--gray-300); font-style: italic; }
+
+.start-btn {
+  padding: 12px 28px; background: var(--blue-600);
+  color: white; border: none; border-radius: var(--r-sm);
+  font-size: 14px; font-weight: 700; cursor: pointer;
+  font-family: 'Noto Sans TC', sans-serif;
+  transition: background .15s; width: 100%; letter-spacing: .02em;
+}
+.start-btn:hover:not(:disabled) { background: var(--blue-700); }
+.start-btn:disabled { opacity: .35; cursor: not-allowed; }
+.start-note { font-size: 11px; color: var(--gray-400); text-align: center; }
+
+/* ══════════════════════════════
+   MAIN SCREEN
+══════════════════════════════ */
+.main-wrap { flex: 1; display: flex; flex-direction: column; }
+
+.topbar {
+  padding: 10px 2rem;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--white);
+}
+.ex-pill {
+  font-size: 12px; font-weight: 700; padding: 4px 12px;
+  border-radius: var(--r-pill); background: var(--blue-900); color: white;
+}
+.date-pill {
+  font-size: 11px; padding: 4px 10px; border-radius: var(--r-pill);
+  background: var(--blue-50); color: var(--blue-700);
+  font-family: 'DM Mono', monospace;
+}
+.ctx-pill-bar {
+  font-size: 10px; padding: 3px 8px; border-radius: var(--r-pill);
+  background: var(--gray-100); color: var(--gray-600);
+}
+.topbar-stats { display: flex; gap: 16px; margin-left: auto; align-items: center; }
+.tstat { font-size: 11px; color: var(--gray-500); }
+.tstat strong { color: var(--gray-900); font-weight: 700; font-size: 13px; font-family: 'DM Mono', monospace; }
+.progress-ring-wrap { display: flex; align-items: center; gap: 8px; }
+.pct-label { font-size: 13px; font-weight: 700; color: var(--blue-600); font-family: 'DM Mono', monospace; }
+.reset-btn {
+  font-size: 11px; padding: 4px 10px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: var(--white);
+  color: var(--gray-600); cursor: pointer; font-family: 'Noto Sans TC', sans-serif;
+}
+.reset-btn:hover { background: var(--gray-100); }
+
+/* Tab bar */
+.tab-bar {
+  display: flex; border-bottom: 1px solid var(--border);
+  background: var(--white); padding: 0 2rem; flex-shrink: 0;
+}
+.tab {
+  padding: 10px 18px; font-size: 12px; cursor: pointer;
+  color: var(--gray-500); border-bottom: 2px solid transparent;
+  margin-bottom: -1px; transition: all .12s; white-space: nowrap;
+  font-weight: 500;
+}
+.tab:hover { color: var(--gray-900); }
+.tab.on { color: var(--blue-600); border-bottom-color: var(--blue-600); }
+.tab .badge {
+  display: inline-block; margin-left: 5px; font-size: 10px;
+  padding: 1px 6px; border-radius: var(--r-pill);
+  background: var(--gray-100); color: var(--gray-500);
+}
+.tab.on .badge { background: var(--blue-50); color: var(--blue-600); }
+.tab-sep { flex: 1; }
+
+/* Body split */
+.body-split { display: flex; flex: 1; overflow: hidden; }
+.task-area { flex: 1; overflow-y: auto; padding: 1.5rem 2rem; }
+
+/* ── Checklist ── */
+.phase-section { margin-bottom: 2rem; }
+.sec-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.sec-color { width: 4px; height: 28px; border-radius: 2px; flex-shrink: 0; }
+.sec-title-wrap { flex: 1; }
+.sec-title { font-size: 13px; font-weight: 700; color: var(--gray-900); }
+.sec-count { font-size: 11px; color: var(--gray-400); margin-top: 1px; }
+.sec-pbar { height: 3px; background: var(--gray-100); border-radius: var(--r-pill); margin-bottom: 10px; overflow: hidden; }
+.sec-pfill { height: 100%; border-radius: var(--r-pill); transition: width .4s ease; }
+
+.task-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 9px 10px; border-radius: var(--r-sm);
+  cursor: pointer; transition: background .1s; margin-bottom: 2px;
+  border: 1px solid transparent;
+}
+.task-item:hover { background: var(--gray-50); border-color: var(--border); }
+.task-item.done-item { opacity: .6; }
+.task-chk {
+  width: 17px; height: 17px; border-radius: 5px;
+  border: 2px solid var(--gray-300); flex-shrink: 0;
+  margin-top: 1px; display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.task-chk.done { background: var(--blue-600); border-color: var(--blue-600); }
+.task-chk.done::after {
+  content: ''; width: 8px; height: 5px;
+  border-left: 2px solid white; border-bottom: 2px solid white;
+  transform: rotate(-45deg) translateY(-1px); display: block;
+}
+.task-body { flex: 1; }
+.task-name { font-size: 13px; color: var(--gray-900); line-height: 1.5; }
+.task-name.done { text-decoration: line-through; color: var(--gray-400); }
+.task-meta { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; align-items: center; }
+.t-tag { font-size: 10px; padding: 2px 7px; border-radius: var(--r-pill); }
+.t-own { background: var(--teal-50); color: var(--teal-600); }
+.t-due-ok { background: var(--green-50); color: var(--green-700); }
+.t-due-soon { background: var(--amber-50); color: var(--amber-700); }
+.t-due-urgent { background: var(--red-50); color: var(--red-700); font-weight: 500; }
+.t-due-past { background: var(--gray-100); color: var(--gray-400); }
+
+/* ── Gantt ── */
+.gantt-area { flex: 1; overflow: auto; padding: 1.5rem 2rem; }
+.gantt-table { border-collapse: collapse; min-width: 100%; font-size: 12px; }
+.gantt-table th {
+  padding: 6px 8px; text-align: left; font-size: 10px; font-weight: 700;
+  color: var(--gray-500); border-bottom: 1px solid var(--border);
+  white-space: nowrap; letter-spacing: .04em; text-transform: uppercase;
+  position: sticky; top: 0; background: var(--white); z-index: 2;
+}
+.gantt-table th.week-th { text-align: center; min-width: 38px; font-family: 'DM Mono', monospace; font-size: 10px; }
+.gantt-table th.week-th.today-th { color: var(--blue-600); }
+.gantt-table td { padding: 4px 8px; border-bottom: 1px solid var(--gray-50); vertical-align: middle; }
+.gantt-table tr:hover td { background: var(--gray-50); }
+.gantt-sec-row td { background: var(--gray-50); padding: 6px 8px; }
+.gantt-sec-label { font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.g-name { font-size: 12px; color: var(--gray-900); white-space: nowrap; max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+.g-name.done { color: var(--gray-300); text-decoration: line-through; }
+.g-own { font-size: 10px; color: var(--gray-400); white-space: nowrap; }
+.gcell { position: relative; height: 24px; min-width: 38px; }
+.gcell.today-col { background: rgba(34,113,195,.04); }
+.gbar { height: 10px; border-radius: var(--r-pill); position: absolute; top: 7px; left: 3px; right: 3px; }
+.gbar.dimmed { opacity: .35; }
+.gantt-dl-bar {
+  padding: 10px 2rem; border-top: 1px solid var(--border);
+  display: flex; gap: 8px; align-items: center; background: var(--white);
+  flex-shrink: 0;
+}
+.dl-btn {
+  font-size: 12px; padding: 7px 14px; border-radius: var(--r-sm);
+  border: 1px solid var(--border); background: var(--white);
+  color: var(--gray-700); cursor: pointer;
+  font-family: 'Noto Sans TC', sans-serif;
+  display: flex; align-items: center; gap: 6px; transition: all .12s;
+}
+.dl-btn:hover { background: var(--gray-50); border-color: var(--gray-300); }
+.dl-btn svg { width: 13px; height: 13px; }
+.dl-hint { font-size: 11px; color: var(--gray-400); margin-left: 4px; }
+
+/* ── Toast ── */
+.toast {
+  position: fixed; bottom: 2rem; left: 50%; transform: translateX(-50%) translateY(80px);
+  background: var(--gray-900); color: white; padding: 10px 20px;
+  border-radius: var(--r-pill); font-size: 12px; opacity: 0;
+  transition: all .3s; pointer-events: none; z-index: 999;
+  white-space: nowrap;
+}
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--gray-200); border-radius: 3px; }
+
+/* ── Empty state ── */
+.empty-phase { text-align: center; padding: 3rem 1rem; color: var(--gray-300); font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <!-- Header -->
+  <header class="hdr">
+    <div class="hdr-brand">
+      <div class="hdr-icon">
+        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z"/></svg>
+      </div>
+      <div>
+        <div class="hdr-title">展會 PM 規劃助手</div>
+        <div class="hdr-sub">鼎新數智市場營銷中心</div>
+      </div>
+    </div>
+    <div class="hdr-badge">v2026</div>
+  </header>
+
+  <!-- ── SETUP SCREEN ── -->
+  <div class="screen active" id="screenSetup">
+    <div class="setup-wrap">
+      <!-- Left: form -->
+      <div class="setup-left">
+        <div class="setup-eyebrow">Step 1 of 2</div>
+        <div class="setup-heading">請告訴我這次展會的情境</div>
+        <div class="setup-desc">根據你的回答，系統自動產出這次的任務清單與甘特圖時程，幫助你快速展開策畫與排程控管。</div>
+
+        <div class="field-grid" style="margin-top:1.75rem;">
+          <div class="field-full">
+            <label class="field-label">展會名稱</label>
+            <input class="field-input" id="eName" placeholder="例：2026 自動化展" />
+          </div>
+          <div>
+            <label class="field-label">展覽開始日期</label>
+            <input class="field-input" id="eDate" type="date" oninput="onDateChange()" />
+            <div class="date-feedback" id="dateFeedback"></div>
+          </div>
+          <div>
+            <label class="field-label">展覽結束日期（選填）</label>
+            <input class="field-input" id="eDateEnd" type="date" />
+          </div>
+        </div>
+
+        <!-- 參展模式 -->
+        <div class="ctx-block">
+          <div class="ctx-label">參展模式（單選）</div>
+          <div class="chips-wrap">
+            <div class="cchip" data-grp="mode" data-key="solo" onclick="togChip(this)"><div class="cdot"></div>獨立展位</div>
+            <div class="cchip" data-grp="mode" data-key="joint" onclick="togChip(this)"><div class="cdot"></div>聯展（與夥伴共攤）</div>
+            <div class="cchip" data-grp="mode" data-key="embed" onclick="togChip(this)"><div class="cdot"></div>置入他人展位</div>
+          </div>
+        </div>
+
+        <!-- 公關媒體 -->
+        <div class="ctx-block">
+          <div class="ctx-label">公關與媒體（可複選）</div>
+          <div class="chips-wrap">
+            <div class="cchip" data-key="pr_visit" onclick="togChip(this)"><div class="cdot"></div>邀約媒體 / KOL 參觀展位</div>
+            <div class="cchip" data-key="pr_release" onclick="togChip(this)"><div class="cdot"></div>發佈新聞稿</div>
+            <div class="cchip" data-key="pr_conf" onclick="togChip(this)"><div class="cdot"></div>舉辦媒體記者會</div>
+          </div>
+        </div>
+
+        <!-- 宣傳 -->
+        <div class="ctx-block">
+          <div class="ctx-label">宣傳規劃（可複選）</div>
+          <div class="chips-wrap">
+            <div class="cchip" data-key="owned_media" onclick="togChip(this)"><div class="cdot"></div>自媒體宣傳</div>
+            <div class="cchip" data-key="paid_media" onclick="togChip(this)"><div class="cdot"></div>廣告宣傳預算</div>
+            <div class="cchip" data-key="invite" onclick="togChip(this)"><div class="cdot"></div>精準客群邀約</div>
+            <div class="cchip" data-key="sales_brief" onclick="togChip(this)"><div class="cdot"></div>業務說明會</div>
+          </div>
+        </div>
+
+        <!-- 現場執行 -->
+        <div class="ctx-block">
+          <div class="ctx-label">現場執行（可複選）</div>
+          <div class="chips-wrap">
+            <div class="cchip" data-key="sg" onclick="togChip(this)"><div class="cdot"></div>SG 地推</div>
+            <div class="cchip" data-key="stage" onclick="togChip(this)"><div class="cdot"></div>舞台演說</div>
+            <div class="cchip" data-key="interactive" onclick="togChip(this)"><div class="cdot"></div>互動體驗裝置</div>
+            <div class="cchip" data-key="demo" onclick="togChip(this)"><div class="cdot"></div>方案 DEMO 展示</div>
+            <div class="cchip" data-key="av" onclick="togChip(this)"><div class="cdot"></div>影視攝影記錄</div>
+            <div class="cchip" data-key="live" onclick="togChip(this)"><div class="cdot"></div>直播</div>
+          </div>
+        </div>
+
+        <!-- 事後追蹤 -->
+        <div class="ctx-block">
+          <div class="ctx-label">事後追蹤（可複選）</div>
+          <div class="chips-wrap">
+            <div class="cchip" data-key="telemarketing" onclick="togChip(this)"><div class="cdot"></div>電銷跟進</div>
+            <div class="cchip" data-key="edm" onclick="togChip(this)"><div class="cdot"></div>會後 EDM 分眾觸達</div>
+            <div class="cchip" data-key="longtail" onclick="togChip(this)"><div class="cdot"></div>長尾內容擴散</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: summary + CTA -->
+      <div class="setup-right">
+        <div class="summary-card">
+          <div class="summary-title">時程預覽</div>
+          <div id="summaryStats">
+            <div class="summary-stat">
+              <span class="summary-stat-label">距展覽</span>
+              <span class="summary-stat-val" id="sumDays">—</span>
+            </div>
+            <div class="summary-stat">
+              <span class="summary-stat-label">本次任務數</span>
+              <span class="summary-stat-val" id="sumTasks">—</span>
+            </div>
+            <div class="summary-stat">
+              <span class="summary-stat-label">已選情境</span>
+              <span class="summary-stat-val" id="sumCtx">0 項</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="summary-card">
+          <div class="summary-title">已選情境</div>
+          <div class="ctx-selected" id="ctxSelected">
+            <span class="empty-hint">尚未勾選任何情境</span>
+          </div>
+        </div>
+
+        <div style="margin-top:auto;display:flex;flex-direction:column;gap:10px;">
+          <button class="start-btn" id="startBtn" onclick="startPlanning()" disabled>開始規劃 →</button>
+          <div class="start-note">填入展覽日期並勾選至少一個情境後開始</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MAIN SCREEN ── -->
+  <div class="screen" id="screenMain">
+    <div class="main-wrap">
+      <!-- Topbar -->
+      <div class="topbar">
+        <span class="ex-pill" id="topExName"></span>
+        <span class="date-pill" id="topDate"></span>
+        <div class="ctx-pills-bar" id="topCtxPills" style="display:flex;gap:5px;flex-wrap:wrap;"></div>
+        <div class="topbar-stats">
+          <span class="tstat">任務 <strong id="stTotal">0</strong></span>
+          <span class="tstat">完成 <strong id="stDone">0</strong></span>
+          <span class="pct-label" id="stPct">0%</span>
+        </div>
+        <button class="reset-btn" onclick="goReset()">← 重新設定</button>
+      </div>
+
+      <!-- Tab bar -->
+      <div class="tab-bar">
+        <div class="tab on" data-ph="before" onclick="switchTab('before')">事前籌備 <span class="badge" id="cnt-before"></span></div>
+        <div class="tab" data-ph="during" onclick="switchTab('during')">事中執行 <span class="badge" id="cnt-during"></span></div>
+        <div class="tab" data-ph="after" onclick="switchTab('after')">事後追蹤 <span class="badge" id="cnt-after"></span></div>
+        <div class="tab-sep"></div>
+        <div class="tab" data-view="gantt" onclick="switchTab('gantt')">甘特圖</div>
+      </div>
+
+      <!-- Body -->
+      <div class="body-split" style="flex:1;overflow:hidden;">
+        <!-- Task / Gantt area -->
+        <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+          <!-- Checklist -->
+          <div class="task-area" id="taskArea"></div>
+          <!-- Gantt -->
+          <div style="display:none;flex:1;flex-direction:column;overflow:hidden;" id="ganttContainer">
+            <div class="gantt-area" id="ganttArea"></div>
+            <div class="gantt-dl-bar">
+              <button class="dl-btn" onclick="dlCSV()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                下載 CSV
+              </button>
+              <button class="dl-btn" onclick="dlTSV()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                下載 Excel（TSV）
+              </button>
+              <span class="dl-hint">TSV 可直接貼入 Excel / Google Sheets，欄位含實際截止日期</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+/* ════════════════════════════════
+   STATE
+════════════════════════════════ */
+const CTX = {}, DONE = {};
+let CUR_TAB = 'before';
+let EXHIBIT_DATE = null, WEEKS_BEFORE = 12;
+
+const CTX_LABELS = {
+  solo:'獨立展位', joint:'聯展', embed:'置入展位',
+  pr_visit:'媒體/KOL 參觀', pr_release:'新聞稿發佈', pr_conf:'媒體記者會',
+  owned_media:'自媒體宣傳', paid_media:'廣告宣傳預算', invite:'精準邀約', sales_brief:'業務說明會',
+  sg:'SG地推', stage:'舞台演說', interactive:'互動裝置',
+  demo:'方案DEMO', av:'影視記錄', live:'直播',
+  telemarketing:'電銷跟進', edm:'會後EDM', longtail:'長尾擴散'
+};
+
+/* ════════════════════════════════
+   TASK DATA
+   ws = weeks before exhibit (positive=before, 0=during/exhibit week, negative=after)
+   wd = width in weeks
+════════════════════════════════ */
+const TASKS = {
+  before:[
+    { sec:'① 策展定位', color:'#1d5faa', tasks:[
+      { id:'b1',  name:'蒐集展位周邊友商方案，產出友商對比一頁紙',    own:'策略組',    ai:'幫我分析展場周邊友商差異化切入點', ctx:['solo','joint'],         ws:12, wd:1 },
+      { id:'b2',  name:'確認參展模式、品牌露出比例與夥伴分工',        own:'主管',       ctx:['always'],                         ws:12, wd:1 },
+      { id:'b3',  name:'確定主題文案（主標+副標），各組對齊鎖定',     own:'市場+設計',  ai:'提案3個吸睛展會主題標題方向',       ctx:['always'],               ws:10, wd:1 },
+      { id:'b4',  name:'召開聯展夥伴啟動會，確認費用分攤備忘錄',      own:'主管+公關',  ctx:['joint'],                          ws:10, wd:1 },
+      { id:'b5',  name:'設定展會 KPI 目標（MQL/拉新率）並公告全員',  own:'策略組',    ai:'這次展會的MQL目標怎麼設定比較合理',  ctx:['solo','joint'],         ws:10, wd:1 },
+      { id:'b6',  name:'預算申請核定，各類費用主管核准，設預備金',    own:'主管',       ctx:['always'],                         ws:12, wd:1 },
+    ]},
+    { sec:'② 展場規劃', color:'#0f6e56', tasks:[
+      { id:'b7',  name:'申請攤位（優先主走道），繪製訪客動線圖',      own:'場控組',     ctx:['solo','joint'],                   ws:14, wd:2 },
+      { id:'b8',  name:'規劃主視覺焦點，設計展位吸睛與攔截機制',     own:'設計組',     ctx:['solo','joint'],                   ws:8,  wd:1 },
+      { id:'b9',  name:'設計兩條接待路徑：路過客留資 + 顧問深談',    own:'業務+場控',  ctx:['solo','joint','embed'],            ws:6,  wd:1 },
+      { id:'b10', name:'規劃舞台演說固定場次與每日活動時間表',        own:'策略組',     ctx:['stage'],                          ws:6,  wd:1 },
+      { id:'b11', name:'確認硬體設備清單，廠商詢價簽約',             own:'場控組',     ctx:['solo','joint'],                   ws:7,  wd:2 },
+      { id:'b12', name:'向主辦申請電力、網路等行政事項',             own:'行政',       ctx:['solo','joint'],                   ws:4,  wd:1 },
+    ]},
+    { sec:'③ 內容製作', color:'#854f0b', tasks:[
+      { id:'b13', name:'製作主視覺與所有輸出物（背板/DM/Landing Page）', own:'設計組',   ctx:['always'],                         ws:4,  wd:2 },
+      { id:'b14', name:'製作方案展示 PPT 與 DEMO 介面錄影',           own:'市場+業務',  ctx:['demo'],                           ws:2,  wd:1 },
+      { id:'b15', name:'製作舞台主題影片（3-5 分鐘），展前1週定稿',   own:'影視組',     ctx:['stage'],                          ws:2,  wd:1 },
+      { id:'b16', name:'規劃互動裝置體驗流程，確認廠商時程與驗收節點', own:'市場+技術', ai:'有效攔截陌生訪客的互動機制設計',     ctx:['interactive'],          ws:7,  wd:2 },
+      { id:'b17', name:'設計展會助理欄位邏輯，確認系統串接與分流',    own:'資管+市場',  ctx:['solo','joint'],                   ws:1,  wd:1 },
+      { id:'b18', name:'製作聯展聯合型錄與各家聯名宣傳圖',           own:'設計+公關',  ctx:['joint'],                          ws:4,  wd:1 },
+    ]},
+    { sec:'④ 宣傳規劃', color:'#534ab7', tasks:[
+      { id:'b19', name:'排定前中後自媒體內容節奏，建立多渠道排程表', own:'宣傳組',     ctx:['owned_media'],                    ws:6,  wd:1 },
+      { id:'b19b',name:'規劃廣告投放策略（目標受眾/預算分配/素材需求）', own:'宣傳組',    ctx:['paid_media'],                     ws:6,  wd:1 },
+      { id:'b20', name:'從 ACP 篩選精準客群，發送個人化邀約訊息',    own:'業務+市場',  ctx:['invite'],                         ws:4,  wd:1 },
+      { id:'b21', name:'規劃精準客戶行業客製化導覽場次',             own:'策略+業務',  ctx:['invite'],                         ws:3,  wd:1 },
+      { id:'b22', name:'辦理業務說明會，發送邀約工具包（訊息範本/一頁紙）', own:'市場組', ctx:['sales_brief'],                  ws:2,  wd:1 },
+    ]},
+    { sec:'⑤ 公關', color:'#993c1d', tasks:[
+      { id:'b23', name:'確認媒體/KOL 邀訪名單，發送邀請與場次安排',  own:'公關組',    ai:'媒體KOL參觀展位的接待流程設計',     ctx:['pr_visit'],             ws:3,  wd:1 },
+      { id:'b24', name:'起草新聞稿（含可引用金句），內部審閱定稿',    own:'公關組',    ai:'新聞稿撰寫要點與可引用金句技巧',     ctx:['pr_release','pr_conf'], ws:4,  wd:1 },
+      { id:'b25', name:'新聞稿對外發送，確認媒體清單與發送時效',     own:'公關組',     ctx:['pr_release'],                     ws:2,  wd:1 },
+      { id:'b26', name:'規劃記者會流程，準備媒體問答 Q&A（10-15題）', own:'公關組',   ctx:['pr_conf'],                        ws:3,  wd:1 },
+      { id:'b27', name:'發送記者會媒體邀請，確認出席名單',           own:'公關組',     ctx:['pr_conf'],                        ws:3,  wd:1 },
+    ]},
+    { sec:'⑥ 人員賦能', color:'#5f5e5a', tasks:[
+      { id:'b28', name:'建立各組分工表，指定負責人，發布 Kick-off 啟動信', own:'主管', ctx:['always'],                         ws:8,  wd:1 },
+      { id:'b29', name:'製作涵蓋進/退場全程排班表（含備援機制）',    own:'場控組',     ctx:['solo','joint'],                   ws:2,  wd:1 },
+      { id:'b30', name:'辦理品牌論述培訓，發放現場導覽快速參考卡',   own:'市場+業務',  ctx:['solo','joint'],                   ws:1,  wd:1 },
+    ]},
+  ],
+  during:[
+    { sec:'① 線索獲取', color:'#1d5faa', tasks:[
+      { id:'d1',  name:'每日開展前 briefing（昨日成果/今日目標/主推方案）', own:'場控',  ctx:['always'],       ws:0, wd:1 },
+      { id:'d2',  name:'SG 主走道攔截，誘因設計，每日統計帶入人數',  own:'SG 團隊',    ctx:['sg'],            ws:0, wd:1 },
+      { id:'d3',  name:'顧問洽談並即時完成展會助理登打，不積壓',     own:'業務顧問',   ctx:['always'],        ws:0, wd:1 },
+      { id:'d4',  name:'互動裝置每日開展前30分鐘測試，確認資料入庫', own:'技術+場控',  ctx:['interactive'],   ws:0, wd:1 },
+      { id:'d5',  name:'精準客戶邀約場次接待，行業客製化導覽',       own:'導覽人員',   ctx:['invite'],        ws:0, wd:1 },
+    ]},
+    { sec:'② 品牌擴散', color:'#0f6e56', tasks:[
+      { id:'d6',  name:'媒體/KOL 到場接待，提供媒體包，引導問答',    own:'公關組',     ctx:['pr_visit'],      ws:0, wd:1 },
+      { id:'d7',  name:'記者會執行，結束後1小時內發送新聞稿給受邀媒體', own:'公關組',  ctx:['pr_conf'],       ws:0, wd:1 },
+      { id:'d8',  name:'追蹤媒體刊出狀況，展中每日確認',             own:'公關組',     ctx:['pr_release','pr_conf'], ws:0, wd:1 },
+      { id:'d9',  name:'社群即時發文（現場照片/活動動態）',           own:'宣傳組',     ctx:['owned_media'],   ws:0, wd:1 },
+      { id:'d10', name:'影視記錄清單執行，素材當日分類上傳雲端',     own:'影視組',     ctx:['av'],            ws:0, wd:1 },
+      { id:'d11', name:'直播執行，標記精華片段時間點',               own:'影視+場控',  ctx:['live'],          ws:0, wd:1 },
+      { id:'d12', name:'聯展夥伴互引人流，確保各家品牌訊息清晰不混淆', own:'場控+公關', ctx:['joint'],        ws:0, wd:1 },
+    ]},
+    { sec:'③ 每日優化', color:'#854f0b', tasks:[
+      { id:'d13', name:'收攤後30分鐘：彙整名片數/各方案洽談數/MQL', own:'場控',       ctx:['always'],        ws:0, wd:1 },
+      { id:'d14', name:'每日晨會15分鐘：最有效引流/阻礙/調整決策',  own:'全體顧展人員', ctx:['solo','joint'], ws:0, wd:1 },
+      { id:'d15', name:'突發狀況備援（設備故障/人員缺席）啟動緊急聯絡', own:'場控',   ctx:['always'],        ws:0, wd:1 },
+    ]},
+  ],
+  after:[
+    { sec:'① 會後黃金期', color:'#1d5faa', tasks:[
+      { id:'a1',  name:'線索清洗（去重/補資料），完成三線分流派送',  own:'資管+市場',  ctx:['always'],                         ws:-1, wd:1 },
+      { id:'a2',  name:'電銷跟進「有需求」名單，3-5天內完成聯繫',   own:'電銷',       ai:'展後電銷跟進黃金期話術',             ctx:['telemarketing'],        ws:-1, wd:1 },
+      { id:'a3',  name:'分眾發送個人化感謝信 EDM，72小時內完成',    own:'市場',       ctx:['edm'],                            ws:-1, wd:1 },
+      { id:'a4',  name:'業務私田名單整理，通知責任業務提供客情資料', own:'業務+市場',  ctx:['always'],                         ws:-1, wd:1 },
+      { id:'a5',  name:'媒體刊出篇數追蹤，確認品牌字搜尋量變化',    own:'公關+市場',  ctx:['pr_visit','pr_release','pr_conf'], ws:-2, wd:1 },
+    ]},
+    { sec:'② 成效結算', color:'#0f6e56', tasks:[
+      { id:'a6',  name:'產出獲客成效報告（MQL/成本/拉新率/行業佔比）', own:'策略組',  ctx:['always'],                         ws:-3, wd:1 },
+      { id:'a7',  name:'各渠道引流轉換率分析，識別高/低 ROI 渠道',  own:'策略組',     ctx:['owned_media','paid_media','sg','interactive'], ws:-3, wd:1 },
+      { id:'a8',  name:'費用結算，逐項對比申請預算 vs 實際費用',     own:'行政',       ctx:['always'],                         ws:-2, wd:1 },
+    ]},
+    { sec:'③ 長尾擴散', color:'#854f0b', tasks:[
+      { id:'a9',  name:'整理業務可用素材彈藥庫，主動推送任務卡',    own:'市場',       ctx:['always'],                         ws:-1, wd:1 },
+      { id:'a10', name:'社群精華回顧發文（1-2則）',                  own:'宣傳',       ctx:['owned_media','av'],              ws:-1, wd:1 },
+      { id:'a11', name:'建立長尾內容排程（展後1-8週，每週2-3則）',  own:'宣傳',       ctx:['longtail'],                       ws:-2, wd:6 },
+      { id:'a12', name:'直播精華剪輯上架就享知，LDP補充SEO關鍵字',  own:'影視+市場',  ctx:['live','longtail'],                ws:-1, wd:1 },
+    ]},
+    { sec:'④ 經驗傳承', color:'#5f5e5a', tasks:[
+      { id:'a13', name:'三維度成效提煉（引流/轉化/擴散），附數據佐證', own:'策略組',  ctx:['always'],                         ws:-3, wd:1 },
+      { id:'a14', name:'整理不足之處，每項寫出具體改善方案+負責人',  own:'全組',       ctx:['always'],                         ws:-3, wd:1 },
+      { id:'a15', name:'更新 SOP 版本號，發送通知給部門夥伴',        own:'策略組',     ctx:['always'],                         ws:-4, wd:1 },
+    ]},
+  ],
+};
+
+/* ════════════════════════════════
+   HELPERS
+════════════════════════════════ */
+function isOn(t) {
+  return t.ctx.includes('always') || t.ctx.some(k => CTX[k]);
+}
+function allApplicable() {
+  return Object.values(TASKS).flatMap(secs => secs.flatMap(s => s.tasks.filter(isOn)));
+}
+function daysBetween(a, b) {
+  return Math.round((b - a) / 86400000);
+}
+function getDeadline(ws) {
+  if (!EXHIBIT_DATE) return null;
+  const d = new Date(EXHIBIT_DATE);
+  d.setDate(d.getDate() - ws * 7);
+  return d;
+}
+function fmtDate(d) {
+  if (!d) return '';
+  return `${d.getFullYear()}/${d.getMonth()+1}/${String(d.getDate()).padStart(2,'0')}`;
+}
+function dueStatus(ws) {
+  if (!EXHIBIT_DATE || ws <= 0) return null;
+  const dl = getDeadline(ws);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const diff = daysBetween(today, dl);
+  if (diff < 0)  return { cls:'t-due-past',   label:`逾期 ${-diff} 天` };
+  if (diff === 0) return { cls:'t-due-urgent', label:'今天截止' };
+  if (diff <= 7)  return { cls:'t-due-urgent', label:`${diff} 天後到期` };
+  if (diff <= 14) return { cls:'t-due-soon',   label:`${diff} 天後` };
+  return { cls:'t-due-ok', label: fmtDate(dl) + ' 前' };
+}
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+/* ════════════════════════════════
+   SETUP
+════════════════════════════════ */
+function onDateChange() {
+  const val = document.getElementById('eDate').value;
+  const fb = document.getElementById('dateFeedback');
+  if (!val) {
+    EXHIBIT_DATE = null;
+    fb.className = 'date-feedback'; fb.textContent = ''; fb.classList.remove('show');
+    updateSetupSummary(); return;
+  }
+  EXHIBIT_DATE = new Date(val); EXHIBIT_DATE.setHours(0,0,0,0);
+  const today = new Date(); today.setHours(0,0,0,0);
+  const days = daysBetween(today, EXHIBIT_DATE);
+  WEEKS_BEFORE = Math.max(1, Math.round(Math.abs(days) / 7));
+  fb.classList.add('show');
+  if (days < 0) {
+    fb.className = 'date-feedback show urgent';
+    fb.innerHTML = `<span class="days-big">展覽已過去 ${-days} 天</span>仍可使用事後追蹤功能`;
+  } else if (days === 0) {
+    fb.className = 'date-feedback show warn';
+    fb.innerHTML = `<span class="days-big">今天就是展覽日</span>進入事中執行模式`;
+  } else if (days <= 14) {
+    fb.className = 'date-feedback show warn';
+    fb.innerHTML = `<span class="days-big">距今 ${days} 天（${WEEKS_BEFORE} 週）</span>時間緊迫，請優先處理紅色任務`;
+  } else {
+    fb.className = 'date-feedback show ok';
+    fb.innerHTML = `<span class="days-big">距今 ${days} 天（${WEEKS_BEFORE} 週）</span>各任務截止日已自動計算完成`;
+  }
+  updateSetupSummary();
+}
+
+function togChip(el) {
+  const key = el.dataset.key, grp = el.dataset.grp;
+  if (grp === 'mode') {
+    document.querySelectorAll('[data-grp="mode"]').forEach(e => {
+      e.classList.remove('on'); delete CTX[e.dataset.key];
+    });
+  }
+  if (CTX[key]) { delete CTX[key]; el.classList.remove('on'); }
+  else { CTX[key] = true; el.classList.add('on'); }
+  updateSetupSummary();
+}
+
+function updateSetupSummary() {
+  const n = allApplicable().length;
+  const ctxKeys = Object.keys(CTX);
+  const hasDate = !!EXHIBIT_DATE;
+  document.getElementById('startBtn').disabled = !hasDate || !ctxKeys.length;
+  document.getElementById('sumDays').textContent = hasDate
+    ? `${daysBetween(new Date().setHours(0,0,0,0), EXHIBIT_DATE)} 天` : '—';
+  document.getElementById('sumTasks').textContent = ctxKeys.length ? `${n} 項` : '—';
+  document.getElementById('sumCtx').textContent = `${ctxKeys.length} 項`;
+  const sel = document.getElementById('ctxSelected');
+  if (!ctxKeys.length) {
+    sel.innerHTML = '<span class="empty-hint">尚未勾選任何情境</span>';
+  } else {
+    sel.innerHTML = ctxKeys.map(k => `<span class="ctx-pill-sm">${CTX_LABELS[k]||k}</span>`).join('');
+  }
+}
+
+/* ════════════════════════════════
+   START
+════════════════════════════════ */
+function startPlanning() {
+  const name = document.getElementById('eName').value.trim() || '本次展覽';
+  document.getElementById('screenSetup').classList.remove('active');
+  document.getElementById('screenMain').classList.add('active');
+
+  document.getElementById('topExName').textContent = name;
+  const d = EXHIBIT_DATE;
+  document.getElementById('topDate').textContent = `${d.getFullYear()}/${d.getMonth()+1}/${String(d.getDate()).padStart(2,'0')} 展覽`;
+  const pills = document.getElementById('topCtxPills');
+  pills.innerHTML = Object.keys(CTX).map(k => `<span class="ctx-pill-bar">${CTX_LABELS[k]||k}</span>`).join('');
+
+  renderChecklist(); renderGantt(); updateStats();
+}
+
+function goReset() {
+  Object.keys(CTX).forEach(k=>delete CTX[k]);
+  Object.keys(DONE).forEach(k=>delete DONE[k]);
+  CUR_TAB='before'; EXHIBIT_DATE=null; WEEKS_BEFORE=12;
+  document.querySelectorAll('.cchip').forEach(c=>c.classList.remove('on'));
+  document.getElementById('eDate').value='';
+  document.getElementById('dateFeedback').className='date-feedback';
+  document.getElementById('startBtn').disabled=true;
+  updateSetupSummary();
+  document.getElementById('screenMain').classList.remove('active');
+  document.getElementById('screenSetup').classList.add('active');
+  document.getElementById('aiMsgs').innerHTML='<div class="ai-msg sys">根據你的展會情境，隨時提問<br>也可以點任務旁的「AI建議 ↗」</div>';
+}
+
+/* ════════════════════════════════
+   TABS
+════════════════════════════════ */
+function switchTab(tab) {
+  CUR_TAB = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  if (tab === 'gantt') {
+    document.querySelector('[data-view="gantt"]').classList.add('on');
+    document.getElementById('taskArea').style.display = 'none';
+    document.getElementById('ganttContainer').style.display = 'flex';
+  } else {
+    document.querySelector(`[data-ph="${tab}"]`).classList.add('on');
+    document.getElementById('taskArea').style.display = 'block';
+    document.getElementById('ganttContainer').style.display = 'none';
+    renderChecklist();
+  }
+}
+
+/* ════════════════════════════════
+   CHECKLIST RENDER
+════════════════════════════════ */
+function renderChecklist() {
+  const area = document.getElementById('taskArea');
+  area.innerHTML = '';
+  const secs = TASKS[CUR_TAB];
+  let hasAny = false;
+  secs.forEach(sec => {
+    const app = sec.tasks.filter(isOn);
+    if (!app.length) return;
+    hasAny = true;
+    const done = app.filter(t => DONE[t.id]).length;
+    const pct = Math.round(done / app.length * 100);
+    const div = document.createElement('div');
+    div.className = 'phase-section';
+    div.innerHTML = `
+      <div class="sec-header">
+        <div class="sec-color" style="background:${sec.color}"></div>
+        <div class="sec-title-wrap">
+          <div class="sec-title">${sec.sec}</div>
+          <div class="sec-count">${done} / ${app.length} 完成</div>
+        </div>
+      </div>
+      <div class="sec-pbar"><div class="sec-pfill" style="width:${pct}%;background:${sec.color}"></div></div>
+      ${app.map(t => {
+        const ds = CUR_TAB === 'before' ? dueStatus(t.ws) : null;
+        const duetag = ds && !DONE[t.id] ? `<span class="t-tag ${ds.cls}">${ds.label}</span>` : '';
+        return `<div class="task-item ${DONE[t.id]?'done-item':''}" onclick="toggleTask('${t.id}')">
+          <div class="task-chk ${DONE[t.id]?'done':''}"></div>
+          <div class="task-body">
+            <div class="task-name ${DONE[t.id]?'done':''}">${t.name}</div>
+            <div class="task-meta">
+              ${t.own ? `<span class="t-tag t-own">${t.own}</span>` : ''}
+              ${duetag}${aitag}
+            </div>
+          </div>
+        </div>`;
+      }).join('')}`;
+    area.appendChild(div);
+  });
+  if (!hasAny) area.innerHTML = '<div class="empty-phase">此階段沒有符合當前情境的任務</div>';
+}
+
+function toggleTask(id) {
+  DONE[id] = !DONE[id];
+  renderChecklist();
+  if (CUR_TAB === 'gantt') renderGantt();
+  updateStats();
+  showToast(DONE[id] ? '已完成' : '已取消完成');
+}
+
+/* ════════════════════════════════
+   STATS
+════════════════════════════════ */
+function updateStats() {
+  const app = allApplicable(), done = app.filter(t => DONE[t.id]).length;
+  document.getElementById('stTotal').textContent = app.length;
+  document.getElementById('stDone').textContent = done;
+  document.getElementById('stPct').textContent = app.length ? Math.round(done/app.length*100)+'%' : '0%';
+  ['before','during','after'].forEach(ph => {
+    const rem = TASKS[ph].flatMap(s=>s.tasks).filter(isOn).filter(t=>!DONE[t.id]).length;
+    document.getElementById('cnt-'+ph).textContent = rem + ' 剩';
+  });
+}
+
+/* ════════════════════════════════
+   GANTT RENDER
+════════════════════════════════ */
+function renderGantt() {
+  const MAX_PRE = Math.min(WEEKS_BEFORE, 14);
+  const cols = [];
+  for (let w = MAX_PRE; w > 0; w--) cols.push({ w, label: `前${w}W` });
+  cols.push({ w: 0, label: '展期' });
+  for (let w = -1; w >= -5; w--) cols.push({ w, label: `後${-w}W` });
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayW = EXHIBIT_DATE ? Math.round(daysBetween(today, EXHIBIT_DATE) / 7) : null;
+
+  let html = `<table class="gantt-table"><thead><tr>
+    <th style="min-width:190px;position:sticky;left:0;z-index:3;background:white">任務</th>
+    <th style="min-width:80px">負責人</th>`;
+  cols.forEach(c => {
+    const isT = todayW !== null && c.w === todayW;
+    html += `<th class="week-th${isT?' today-th':''}">${c.label}${isT?'▼':''}</th>`;
+  });
+  html += `</tr></thead><tbody>`;
+
+  [['before','事前籌備'],['during','事中執行'],['after','事後追蹤']].forEach(([ph]) => {
+    TASKS[ph].forEach(sec => {
+      const app = sec.tasks.filter(isOn);
+      if (!app.length) return;
+      html += `<tr class="gantt-sec-row"><td colspan="${cols.length+2}"><span class="gantt-sec-label" style="color:${sec.color}">${sec.sec}</span></td></tr>`;
+      app.forEach(t => {
+        const isDone = DONE[t.id];
+        html += `<tr>
+          <td style="position:sticky;left:0;background:white;z-index:1">
+            <div class="g-name${isDone?' done':''}" title="${t.name}">${t.name}</div>
+          </td>
+          <td><div class="g-own">${t.own||''}</div></td>`;
+        cols.forEach(c => {
+          const inBar = c.w <= t.ws && c.w > t.ws - t.wd;
+          const isT = todayW !== null && c.w === todayW;
+          html += `<td class="gcell${isT?' today-col':''}">${inBar ? `<div class="gbar${isDone?' dimmed':''}" style="background:${sec.color}"></div>` : ''}</td>`;
+        });
+        html += `</tr>`;
+      });
+    });
+  });
+  html += `</tbody></table>`;
+  document.getElementById('ganttArea').innerHTML = html;
+}
+
+/* ════════════════════════════════
+   DOWNLOAD
+════════════════════════════════ */
+function buildRows() {
+  const rows = [['階段','分類','任務','負責人','截止日期','狀態']];
+  const phMap = { before:'事前', during:'事中', after:'事後' };
+  Object.entries(phMap).forEach(([ph, label]) => {
+    TASKS[ph].forEach(sec => {
+      sec.tasks.filter(isOn).forEach(t => {
+        const dl = getDeadline(t.ws);
+        const dlStr = dl ? fmtDate(dl) : ph === 'during' ? '展期' : '';
+        rows.push([label, sec.sec, t.name, t.own||'', dlStr, DONE[t.id]?'已完成':'待執行']);
+      });
+    });
+  });
+  return rows;
+}
+function dlCSV() {
+  const rows = buildRows();
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  dl(new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8'}), '任務清單.csv');
+}
+function dlTSV() {
+  const rows = buildRows();
+  const tsv = rows.map(r => r.join('\t')).join('\n');
+  dl(new Blob(['\uFEFF'+tsv], {type:'text/plain;charset=utf-8'}), '任務清單.tsv');
+}
+function dl(blob, suffix) {
+  const name = (document.getElementById('eName').value.trim() || '展會') + '_' + suffix;
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  showToast('檔案下載中…');
+}
+
+/* ════════════════════════════════
+   AI
+════════════════════════════════ */
+
+</script>
+</body>
+</html>
